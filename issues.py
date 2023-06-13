@@ -10,6 +10,9 @@ WRITE_PATH = os.environ.get("WRITE_PATH")
 GITHUB_ACCESS_TOKEN = os.environ.get("GITHUB_ACCESS_TOKEN")
 GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME")
 
+# TESTING PURPOSES, comment out when ready to actually write
+WRITE_PATH = './questions'
+
 textbook_chapter_to_name = {
     '1': 'ch_intro_to_data',
     '2': 'ch_summarizing_data',
@@ -27,6 +30,13 @@ def get_file_url(chapter: str, filename: str):
 def read_file(path):
     with open(path, 'r') as f:
         return f.readlines()
+    
+def replace_file_line(file_name, line_num, text):
+    with open(file_name, 'r') as f:
+        lines = f.readlines()
+    lines[line_num] = text + '\n'
+    with open(file_name, 'w') as f:
+        f.writelines(lines)
     
 def read_inputs(chapter: str):
     path = get_file_url(chapter, textbook_chapter_to_name[chapter])
@@ -190,7 +200,8 @@ def get_exercises(chapter: str, section: str, questions):
                     "title": title,
                     "description": description,
                     "parts": parts,
-                    "path": f"q{str(question).zfill(2)}_{section}.md"
+                    "path": f"q{str(question).zfill(2)}_{section}.md",
+                    "assets": [],
                 })
                 cur_question += 1
 
@@ -212,6 +223,8 @@ def read_chapter(chapter: str, sections):
         
         results += get_exercises(chapter, section, questions)
 
+    for exercise in results:
+        write_md(exercise)
     print(json.dumps(results, indent=4))
 
 
@@ -219,29 +232,54 @@ def write_file(path, lines):
     with open(path, 'a') as f:
         f.writelines([line + '\n' for line in lines])
 
-def write_md(new_file_name, assets, exercises):
-    path = f'{WRITE_PATH}/{new_file_name}.md'
+def write_md(exercise):
+    path = WRITE_PATH + '/' + exercise['path']
     shutil.copyfile('q11_multi-part.md', path)
+    replace_file_line(path, 1, f"title: {exercise['title']}")
+
+    lines_to_write = []
     asset_lines = ["assets:"]
-    for a in assets:
+    for a in exercise['assets']:
         asset_lines.append(f"- {a}")
+    lines_to_write += asset_lines
     
-    lines_to_write = [
+    lines_to_write += [
         "server:\nimports: |\n\t  import random\n\t  import pandas as pd\n\t  import problem_bank_helpers as pbh",
         "  generate: |\n\t  data2 = pbh.create_data2()\n\t  data.update(data2)",
         "  prepare: |        pass\n  parse: |\n        pass\n  grade: |\n        pass"
     ]
     question_part_lines = []
-    for (i, e) in enumerate(exercises):
+    for (i, e) in enumerate(exercise['parts']):
         question_lines = [
             f'part{i+1}:',
             f'  type: {e["type"]}',
             '  pl-customizations:',
         ]
         question_part_lines += question_lines
+    lines_to_write += question_part_lines
+    lines_to_write += ['---', '# {{ params.vars.title }}', '', exercise['description'], '']
     
-    end_lines = ['---']
-    write_file(path, asset_lines + lines_to_write + question_part_lines + end_lines)
+    # TODO: ADD ASSETS HERE, how should assets be formatted?, since parts assets + main assets
+    for a in exercise['assets']:
+        img = f'<img src="{a}" width=400>'
+        lines_to_write.append(img)
+    if len(exercise['assets']) > 0:
+        lines_to_write.append('')
+
+    for i, part in enumerate(exercise['parts']):
+        answer_section = '### Answer Section\n\nPlease enter in a numeric value in {{ params.vars.units }}.\n\n### pl-submission-panel\n\nEverything here will get inserted directly into the pl-submission-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+        answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+        part_lines = [f'## Part{i+1}', '']
+        part_lines.append(part['question']) 
+        part_lines.append('')
+        # TODO: ADD ASSETS HERE
+        part_lines.append(answer_section)
+        part_lines.append('')
+        part_lines.append(answer_section2)
+        part_lines.append('')
+        lines_to_write += part_lines
+
+    write_file(path, lines_to_write)
 
 # Public Web Github
 g = Github(login_or_token=GITHUB_ACCESS_TOKEN)
