@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
+# region settings
 TEXTBOOK_PATH = os.environ.get("TEXTBOOK_PATH")
 WRITE_PATH = os.environ.get("WRITE_PATH")
 GITHUB_ACCESS_TOKEN = os.environ.get("GITHUB_ACCESS_TOKEN")
@@ -18,7 +19,9 @@ textbook_chapter_to_name = {
     '2': 'ch_summarizing_data',
     # TODO: add more chapters
 }
+# endregion
 
+# region general helpers
 def str_to_filename(string: str):
     return ''.join(e for e in string if e.isalnum() or e == '_')
 
@@ -106,17 +109,22 @@ def remove_tags(string: str):
         print("AFTER:", string)
     return string
 
-def handle_exercise(exercise):
-    pass
+def write_file(path, lines):
+    with open(path, 'a') as f:
+        f.writelines([line + '\n' for line in lines])
+# endregion
 
+# region read textbook
 def guess_question_type(question: str):
     question = question.strip().lower()
     numeric_phrases = ['how many', 'what percent']
+    multiple_choice_phrases = ['what is', 'which group']
     for ph in numeric_phrases:
         if ph in question:
             return 'number-input'
-    if 'which group' in question:
-        return 'multiple-choice'
+    for ph in multiple_choice_phrases:
+        if ph in question:
+            return 'multiple-choice'
     return 'unknown'
 
 def handle_parts(lines, starting_index):
@@ -139,7 +147,8 @@ def handle_parts(lines, starting_index):
         question = x.replace('\\\\','\n').strip()
         parts.append({
             'question': question,
-            'type': guess_question_type(question)
+            'type': guess_question_type(question),
+            'type_info': {}
         })
     return parts
 
@@ -229,18 +238,50 @@ def read_chapter(chapter: str, sections):
         questions.sort()
         section_index = all_sections.index(section)
         # file_questions = [q - summed_counts[section_index] for q in questions]
-        
         results += get_exercises(chapter, section, questions)
 
     for exercise in results:
         write_md(exercise)
     print(json.dumps(results, indent=4))
+# endregion read textbook
+
+def md_part_lines(part, i):
+    #  in {{ params.vars.units }}
+    numeric_answer_section = '### Answer Section\n\nPlease enter in a numeric value.\n\n### pl-submission-panel\n\nEverything here will get inserted directly into the pl-submission-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+    answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+    # if part['type'] == 'multiple-choice':
+
+    return [
+        f'## Part {i+1}', '', 
+        part['question'], '', 
+        numeric_answer_section, '', 
+        answer_section2, '']
 
 
-def write_file(path, lines):
-    with open(path, 'a') as f:
-        f.writelines([line + '\n' for line in lines])
+def apply_indent(lines, indent):
+    return [indent + x for x in lines]
 
+def get_pl_customizations(type: str, type_info: dict = {}):
+    pl_indent = '    '
+    ans = []
+    if type == 'multiple-choice':
+        ans = ['weight: 1']
+    elif type == 'number-input':
+        # TODO: need to know if integer or not
+        if 'type' in type_info and type_info['type'] == 'integer':
+            ans = ['label: $d= $', 'weight: 1', 'allow-blank: true']
+        else:
+            ans = ['rtol: 0.05', 'weight: 1', 'allow-blank: true', 'label: $d= $', 'suffix: m']
+        # ans = ['weight: 1', 'allow-blank: true'] # for integer
+    elif type == 'dropdown':
+        ans = ['weight: 1', 'blank: true']
+    elif type == 'checkbox':
+        ans = ['weight: 1', 'partial-credit: true', 'partial-credit-method: EDC']
+    elif type == 'symbolic-input':
+        ans = ['label: $F_r = $', 'variables: "m, v, r"', 'weight: 1', 'allow-blank: false']
+    return ['  pl-customizations:'] + apply_indent(lines=ans, indent=pl_indent)
+
+# region write_md
 def write_md(exercise):
     path = WRITE_PATH + '/' + exercise['path']
     shutil.copyfile('q11_multi-part.md', path)
@@ -259,11 +300,7 @@ def write_md(exercise):
     ]
     question_part_lines = []
     for (i, e) in enumerate(exercise['parts']):
-        question_lines = [
-            f'part{i+1}:',
-            f'  type: {e["type"]}',
-            '  pl-customizations:',
-        ]
+        question_lines = [f'part{i+1}:', f'  type: {e["type"]}'] + get_pl_customizations(e['type'], e['type_info'])
         question_part_lines += question_lines
     lines_to_write += question_part_lines
     lines_to_write += ['---', '# {{ params.vars.title }}', '', exercise['description'], '']
@@ -276,44 +313,37 @@ def write_md(exercise):
         lines_to_write.append('')
 
     for i, part in enumerate(exercise['parts']):
-        answer_section = '### Answer Section\n\nPlease enter in a numeric value in {{ params.vars.units }}.\n\n### pl-submission-panel\n\nEverything here will get inserted directly into the pl-submission-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
-        answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
-        part_lines = [f'## Part{i+1}', '']
-        part_lines.append(part['question']) 
-        part_lines.append('')
-        # TODO: ADD ASSETS HERE
-        part_lines.append(answer_section)
-        part_lines.append('')
-        part_lines.append(answer_section2)
-        part_lines.append('')
-        lines_to_write += part_lines
+        lines_to_write += md_part_lines(part, i=i)
 
     write_file(path, lines_to_write)
+# endregion
 
-# Public Web Github
-g = Github(login_or_token=GITHUB_ACCESS_TOKEN)
 
-# Github Enterprise with custom hostname
-# g = Github(base_url="https://{hostname}/api/v3", auth=auth)
+if __name__ == "__main__":
+    # Public Web Github
+    g = Github(login_or_token=GITHUB_ACCESS_TOKEN)
 
-repo = g.get_repo("open-resources/instructor_stats_bank")
+    # Github Enterprise with custom hostname
+    # g = Github(base_url="https://{hostname}/api/v3", auth=auth)
 
-issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
-print(issues.totalCount)
+    repo = g.get_repo("open-resources/instructor_stats_bank")
 
-sections_by_chapter = {}
-for item in issues:
-    print(item.title)
-    chapter = item.title.split(' ')[0].split('.')[0]
-    split = item.title.split(' ')
-    section_name = '_'.join(split[1:-1]).lower()
-    section_name = str_to_filename(section_name)
-    question = int(split[-1][1:].split('.')[-1])
-    if chapter not in sections_by_chapter:
-        sections_by_chapter[chapter] = {}
-    if section_name not in sections_by_chapter[chapter]:
-        sections_by_chapter[chapter][section_name] = []
-    sections_by_chapter[chapter][section_name].append(question)
-print(sections_by_chapter)
-for (chapter, sections) in sections_by_chapter.items():
-    read_chapter(chapter, sections)
+    issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+    print(issues.totalCount)
+
+    sections_by_chapter = {}
+    for item in issues:
+        print(item.title)
+        chapter = item.title.split(' ')[0].split('.')[0]
+        split = item.title.split(' ')
+        section_name = '_'.join(split[1:-1]).lower()
+        section_name = str_to_filename(section_name)
+        question = int(split[-1][1:].split('.')[-1])
+        if chapter not in sections_by_chapter:
+            sections_by_chapter[chapter] = {}
+        if section_name not in sections_by_chapter[chapter]:
+            sections_by_chapter[chapter][section_name] = []
+        sections_by_chapter[chapter][section_name].append(question)
+    print(sections_by_chapter)
+    for (chapter, sections) in sections_by_chapter.items():
+        read_chapter(chapter, sections)
