@@ -83,20 +83,28 @@ def remove_unmatched_closing(string: str):
             stack.pop()
     return string
 
-def remove_starting_tag(string: str):
-    if not string.startswith('\\'):
-        return string.strip()
+def find_end_tag(string: str):
     stack = []
-    string = string.index('{')
+    is_started = False
     for i, c in enumerate(string):
         if c == '{':
+            is_started = True
             stack.append(i)
         elif c == '}':
             stack.pop()
-        if len(stack) == 0:
-            return string[i+1:]
+        if is_started and len(stack) == 0:
+            return i
     raise Exception('Does not have ending tag')
 
+def remove_tags(string: str):
+    while '\\' in string:
+        index = string.index('\\')
+        print("INDEX:", string[index:])
+        end_bracket_index = find_end_tag(string[index:])
+        print("BEFORE:", string)
+        string = string[:index] + string[index+end_bracket_index+1:]
+        print("AFTER:", string)
+    return string
 
 def handle_exercise(exercise):
     pass
@@ -166,6 +174,7 @@ def get_exercises(chapter: str, section: str, questions):
                     title_lines[0] = title_lines[0][10:]
                     title_lines[-1] = title_lines[-1][:closing_line_index]
                 title = ' '.join(title_lines)
+                title = remove_tags(title)
                 #endregion
 
                 #region description
@@ -244,9 +253,9 @@ def write_md(exercise):
     lines_to_write += asset_lines
     
     lines_to_write += [
-        "server:\nimports: |\n\t  import random\n\t  import pandas as pd\n\t  import problem_bank_helpers as pbh",
-        "  generate: |\n\t  data2 = pbh.create_data2()\n\t  data.update(data2)",
-        "  prepare: |        pass\n  parse: |\n        pass\n  grade: |\n        pass"
+        "server:\n  imports: |\n        import random\n        import pandas as pd\n        import problem_bank_helpers as pbh",
+        "  generate: |\n        data2 = pbh.create_data2()\n        data.update(data2)",
+        "  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass"
     ]
     question_part_lines = []
     for (i, e) in enumerate(exercise['parts']):
