@@ -4,6 +4,10 @@ import shutil
 import json
 from dotenv import load_dotenv
 import os
+from table import latex_table_to_md, find_all_figures
+import pandoc
+from pdf2image import convert_from_path, convert_from_bytes
+import tempfile
 load_dotenv()
 
 # region settings
@@ -103,11 +107,11 @@ def find_end_tag(string: str):
 def remove_tags(string: str):
     while '\\' in string:
         index = string.index('\\')
-        print("INDEX:", string[index:])
+        # print("INDEX:", string[index:])
         end_bracket_index = find_end_tag(string[index:])
-        print("BEFORE:", string)
+        # print("BEFORE:", string)
         string = string[:index] + string[index+end_bracket_index+1:]
-        print("AFTER:", string)
+        # print("AFTER:", string)
     return string
 
 def write_file(path, lines):
@@ -115,11 +119,35 @@ def write_file(path, lines):
         f.writelines([line + '\n' for line in lines])
 # endregion
 
+
+def latex_to_markdown(latex_lines: list):
+    # write_file('latex.tex', latex_lines)
+    doc = pandoc.read(file='latex.tex')
+    md = pandoc.write(doc, format='markdown')
+    pandoc.write(doc, file='md.md')
+    return md
+    # pandoc.write('markdown', format='markdown')
+    # write_file('latex.tex', latex)
+    # doc = pandoc.Document()
+    # doc.latex = latex
+    # webConverted = doc.markdown
+
+# region latex helpers
+def numbers_to_latex_equations(paragraph: str):
+    words = paragraph.split(' ')
+    for i, word in enumerate(words):
+        if word.isnumeric():
+            words[i] = f'${word}$'
+    return ' '.join(words)
+# i = re.sub(r"\d+", r"[\g<0>]", i)
+# endregion
+
 # region read textbook
 def guess_question_type(question: str):
     question = question.strip().lower()
     numeric_phrases = ['how many', 'what percent']
     multiple_choice_phrases = ['what is', 'which group']
+    long_text_phrases = ['describe', 'explain', 'why']
     for ph in numeric_phrases:
         if ph in question:
             return {'type': 'number-input'}
@@ -134,6 +162,9 @@ def guess_question_type(question: str):
             # data2["params"]["part1"]["ans1"]["value"] = pbh.roundp(42)
             # data2["params"]["part1"]["ans1"]["correct"] = False
             # data2["params"]["part1"]["ans1"]["feedback"] = "This is a random number, you probably selected this choice by mistake! Try again please!"
+    for ph in numeric_phrases:
+        if ph in question:
+            return {'type': 'longtext'}
     return {'type': 'unknown'}
 
 def handle_parts(lines, starting_index):
@@ -155,17 +186,21 @@ def handle_parts(lines, starting_index):
             continue
         question = x.replace('\\\\','\n').strip()
         parts.append({
-            'question': question,
+            'question': numbers_to_latex_equations(question),
             'info': guess_question_type(question),
         })
     return parts
 
 
+def format_description(description: str, non_text_lines: list):
+    non_text = '\n\n' + '\n'.join(non_text_lines) if len(non_text_lines) > 0 else ''
+    return numbers_to_latex_equations(description) + non_text
+
 def get_exercises(chapter: str, section: str, questions):
     path = get_file_url(chapter, section)
     lines = [x.strip() for x in read_file(path)]
-    print(path)
-    print(questions)
+    # print(path)
+    # print(questions)
     exercises = []
     cur_question = 0
     for i, line in enumerate(lines):
@@ -216,6 +251,13 @@ def get_exercises(chapter: str, section: str, questions):
                 description_lines[-1] = description_lines[-1].split(target)[0]
                 description = ' '.join(description_lines).strip()
                 description = remove_unmatched_closing(description)
+
+                non_text_description_lines = []
+                table = latex_table_to_md(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}'])
+                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}'])
+                if table is not None:
+                    non_text_description_lines.append(table)
+
                 #endregion
 
                 #region parts
@@ -224,10 +266,11 @@ def get_exercises(chapter: str, section: str, questions):
 
                 exercises.append({
                     "title": title,
-                    "description": description,
+                    "description": format_description(description, non_text_description_lines),
                     "parts": parts,
+                    "chapter": chapter,
                     "path": f"q{str(question).zfill(2)}_{section}.md",
-                    "assets": [],
+                    "assets": figures,
                 })
                 cur_question += 1
 
@@ -250,18 +293,18 @@ def read_chapter(chapter: str, sections):
 
     for exercise in results:
         write_md(exercise)
-    print(json.dumps(results, indent=4))
+    # print(json.dumps(results, indent=4))
 # endregion read textbook
 
 def md_part_lines(part, i):
     q_type = part['info']['type']
     answer_section = ''
     if q_type == 'number-input':
-        answer_section ='Please enter in a numeric value.\n\n### pl-submission-panel\n\nEverything here will get inserted directly into the pl-submission-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+        answer_section ='Please enter in a numeric value.\n'
     elif q_type == 'multiple-choice':
         choices = part['info']['choices']
         answer_section = '\n'.join([f'- {{{{ params.part{i+1}.ans{j+1}.value }}}}' for j in range(len(choices))])
-    answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+    # answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
     # if part['type'] == 'multiple-choice':
 
     return [
@@ -269,11 +312,20 @@ def md_part_lines(part, i):
         part['question'], '', 
         '### Answer Section\n',
         answer_section, '', 
-        answer_section2, '']
+        # answer_section2, 
+        '']
 
 
 def apply_indent(lines, indent):
     return [indent + x for x in lines]
+
+def format_type_info(info: dict):
+    indent = '  '
+    info_type = info['type']
+    list = [f'type: {info["type"]}']
+    if info_type == 'longtext':
+        list.append('gradingMethod: Manual')
+    return apply_indent(list, indent)
 
 def get_pl_customizations(info: dict = {}):
     type = info['type']
@@ -294,6 +346,8 @@ def get_pl_customizations(info: dict = {}):
         ans = ['weight: 1', 'partial-credit: true', 'partial-credit-method: EDC']
     elif type == 'symbolic-input':
         ans = ['label: $F_r = $', 'variables: "m, v, r"', 'weight: 1', 'allow-blank: false']
+    elif type == 'longtext':
+        ans = ['placeholder: "Type your answer here..."', 'file-name: "answer.html"', 'quill-theme: "snow"', 'directory: clientFilesQuestion', 'source-file-name: sample.html']
     return ['  pl-customizations:'] + apply_indent(lines=ans, indent=pl_indent)
 
 
@@ -317,14 +371,31 @@ def write_code(exercise: dict):
 
 # region write_md
 def write_md(exercise):
-    path = WRITE_PATH + '/' + exercise['path']
+    dir_path = WRITE_PATH + '/' + ''.join(exercise['path'].split('.')[:-1])
+    path = dir_path + '/' + exercise['path'] 
+    if not os.path.exists('questions'):
+        os.mkdir('questions')
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path)
     shutil.copyfile('q11_multi-part.md', path)
     replace_file_line(path, 1, f"title: {exercise['title']}")
 
     lines_to_write = []
     asset_lines = ["assets:"]
+    asset_to_filename = {}
     for a in exercise['assets']:
-        asset_lines.append(f"- {a}")
+        figure_dir_path = f"{TEXTBOOK_PATH}/{textbook_chapter_to_name[chapter]}/figures/{a}"
+        figure_name = os.listdir(figure_dir_path)[0]
+        figure_no_extension_name, ext = figure_name.split('.')
+        if ext == 'pdf':
+            images = None
+            with tempfile.TemporaryDirectory() as tmp_path:
+                images = convert_from_path(f'{figure_dir_path}/{figure_name}', output_folder=tmp_path, use_cropbox=True)
+                figure_name = f'{figure_no_extension_name}.jpg'
+                if len(images) > 0:
+                    images[0].save(f'{dir_path}/{figure_name}', 'JPEG')
+        asset_to_filename[a] = figure_name
+        asset_lines.append(f"- {figure_name}")
     lines_to_write += asset_lines
     lines_to_write.append("server:\n  imports: |\n        import random\n        import pandas as pd\n        import problem_bank_helpers as pbh")
     lines_to_write.append("  generate: |")
@@ -336,26 +407,29 @@ def write_md(exercise):
     # ]
     question_part_lines = []
     for (i, e) in enumerate(exercise['parts']):
-        question_lines = [f'part{i+1}:', f'  type: {e["info"]["type"]}'] + get_pl_customizations(e['info'])
+        question_lines = [f'part{i+1}:'] + format_type_info(e['info']) + get_pl_customizations(e['info'])
         question_part_lines += question_lines
     lines_to_write += question_part_lines
     lines_to_write += ['---', '# {{ params.vars.title }}', '', exercise['description'], '']
     
     # TODO: ADD ASSETS HERE, how should assets be formatted?, since parts assets + main assets
     for a in exercise['assets']:
-        img = f'<img src="{a}" width=400>'
+        filename = asset_to_filename[a]
+        img = f'<img src="{filename}" width=400>'
         lines_to_write.append(img)
     if len(exercise['assets']) > 0:
         lines_to_write.append('')
 
     for i, part in enumerate(exercise['parts']):
         lines_to_write += md_part_lines(part, i=i)
-
+    print("WRITING TO", path)
     write_file(path, lines_to_write)
 # endregion
 
 
 if __name__ == "__main__":
+    print('hi')
+    # latex_to_markdown('')
     # Public Web Github
     g = Github(login_or_token=GITHUB_ACCESS_TOKEN)
 
@@ -380,6 +454,6 @@ if __name__ == "__main__":
         if section_name not in sections_by_chapter[chapter]:
             sections_by_chapter[chapter][section_name] = []
         sections_by_chapter[chapter][section_name].append(question)
-    print(sections_by_chapter)
+    # print(sections_by_chapter)
     for (chapter, sections) in sections_by_chapter.items():
         read_chapter(chapter, sections)
