@@ -1,3 +1,4 @@
+import random
 from github import Github
 import shutil
 import json
@@ -121,11 +122,19 @@ def guess_question_type(question: str):
     multiple_choice_phrases = ['what is', 'which group']
     for ph in numeric_phrases:
         if ph in question:
-            return 'number-input'
+            return {'type': 'number-input'}
     for ph in multiple_choice_phrases:
         if ph in question:
-            return 'multiple-choice'
-    return 'unknown'
+            choices = [{"value": f"'{i}'", "correct": False, "feedback": '"This is a random number, you probably selected this choice by mistake! Try again please!"'} for i in range(4)]
+            # TODO: add actual choices
+            correct = random.randint(0, 3)
+            choices[correct]["correct"] = True
+            choices[correct]["feedback"] = '"Correct!"'
+            return {'type': 'multiple-choice', 'choices': choices}
+            # data2["params"]["part1"]["ans1"]["value"] = pbh.roundp(42)
+            # data2["params"]["part1"]["ans1"]["correct"] = False
+            # data2["params"]["part1"]["ans1"]["feedback"] = "This is a random number, you probably selected this choice by mistake! Try again please!"
+    return {'type': 'unknown'}
 
 def handle_parts(lines, starting_index):
     start = -1
@@ -147,8 +156,7 @@ def handle_parts(lines, starting_index):
         question = x.replace('\\\\','\n').strip()
         parts.append({
             'question': question,
-            'type': guess_question_type(question),
-            'type_info': {}
+            'info': guess_question_type(question),
         })
     return parts
 
@@ -246,29 +254,36 @@ def read_chapter(chapter: str, sections):
 # endregion read textbook
 
 def md_part_lines(part, i):
-    #  in {{ params.vars.units }}
-    numeric_answer_section = '### Answer Section\n\nPlease enter in a numeric value.\n\n### pl-submission-panel\n\nEverything here will get inserted directly into the pl-submission-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+    q_type = part['info']['type']
+    answer_section = ''
+    if q_type == 'number-input':
+        answer_section ='Please enter in a numeric value.\n\n### pl-submission-panel\n\nEverything here will get inserted directly into the pl-submission-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
+    elif q_type == 'multiple-choice':
+        choices = part['info']['choices']
+        answer_section = '\n'.join([f'- {{{{ params.part{i+1}.ans{j+1}.value }}}}' for j in range(len(choices))])
     answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
     # if part['type'] == 'multiple-choice':
 
     return [
         f'## Part {i+1}', '', 
         part['question'], '', 
-        numeric_answer_section, '', 
+        '### Answer Section\n',
+        answer_section, '', 
         answer_section2, '']
 
 
 def apply_indent(lines, indent):
     return [indent + x for x in lines]
 
-def get_pl_customizations(type: str, type_info: dict = {}):
+def get_pl_customizations(info: dict = {}):
+    type = info['type']
     pl_indent = '    '
     ans = []
     if type == 'multiple-choice':
         ans = ['weight: 1']
     elif type == 'number-input':
         # TODO: need to know if integer or not
-        if 'type' in type_info and type_info['type'] == 'integer':
+        if 'sigfigs' in info and info['sigfigs'] == 'integer':
             ans = ['label: $d= $', 'weight: 1', 'allow-blank: true']
         else:
             ans = ['rtol: 0.05', 'weight: 1', 'allow-blank: true', 'label: $d= $', 'suffix: m']
@@ -281,6 +296,25 @@ def get_pl_customizations(type: str, type_info: dict = {}):
         ans = ['label: $F_r = $', 'variables: "m, v, r"', 'weight: 1', 'allow-blank: false']
     return ['  pl-customizations:'] + apply_indent(lines=ans, indent=pl_indent)
 
+
+def write_code(exercise: dict):
+    indent = '        '
+    lines = ["data2 = pbh.create_data2()", "",]
+    for part_num, part in enumerate(exercise['parts']):
+        if part['info']['type'] == 'multiple-choice':
+            lines.append(f"# Part {part_num+1} is a multiple choice question.")
+            for choice_num, choice in enumerate(part['info']['choices']):
+                for (key, val) in choice.items():
+                    lines += [f"data2['params']['part{part_num+1}']['ans{choice_num+1}']['{key}'] = {val}"]
+                lines.append('')
+            lines.append('')
+
+    lines += ["# Update the data object with a new dict", "data.update(data2)"]
+    return apply_indent(lines, indent)
+        # data2["params"]["part1"]["ans1"]["value"] = pbh.roundp(42)
+        # data2["params"]["part1"]["ans1"]["correct"] = False
+        # data2["params"]["part1"]["ans1"]["feedback"] = "This is a random number, you probably selected this choice by mistake! Try again please!"
+
 # region write_md
 def write_md(exercise):
     path = WRITE_PATH + '/' + exercise['path']
@@ -292,15 +326,17 @@ def write_md(exercise):
     for a in exercise['assets']:
         asset_lines.append(f"- {a}")
     lines_to_write += asset_lines
-    
-    lines_to_write += [
-        "server:\n  imports: |\n        import random\n        import pandas as pd\n        import problem_bank_helpers as pbh",
-        "  generate: |\n        data2 = pbh.create_data2()\n        data.update(data2)",
-        "  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass"
-    ]
+    lines_to_write.append("server:\n  imports: |\n        import random\n        import pandas as pd\n        import problem_bank_helpers as pbh")
+    lines_to_write.append("  generate: |")
+    lines_to_write += write_code(exercise)
+    lines_to_write.append("  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass")
+    # lines_to_write += [
+    #     "        data2 = pbh.create_data2()\n        data.update(data2)",
+    #     "  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass"
+    # ]
     question_part_lines = []
     for (i, e) in enumerate(exercise['parts']):
-        question_lines = [f'part{i+1}:', f'  type: {e["type"]}'] + get_pl_customizations(e['type'], e['type_info'])
+        question_lines = [f'part{i+1}:', f'  type: {e["info"]["type"]}'] + get_pl_customizations(e['info'])
         question_part_lines += question_lines
     lines_to_write += question_part_lines
     lines_to_write += ['---', '# {{ params.vars.title }}', '', exercise['description'], '']
