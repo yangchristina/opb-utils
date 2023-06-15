@@ -2,14 +2,16 @@ import random
 from github import Github
 import shutil
 import json
-from dotenv import load_dotenv
 import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
-from pdf2image import convert_from_path, convert_from_bytes
+from pdf2image import convert_from_path
+from utils import replace_file_line
 import tempfile
 import re
+from dotenv import load_dotenv
 load_dotenv()
+
 
 # region settings
 TEXTBOOK_PATH = os.environ.get("TEXTBOOK_PATH")
@@ -39,13 +41,6 @@ def get_file_url(chapter: str, filename: str):
 def read_file(path):
     with open(path, 'r') as f:
         return f.readlines()
-    
-def replace_file_line(file_name, line_num, text):
-    with open(file_name, 'r') as f:
-        lines = f.readlines()
-    lines[line_num] = text + '\n'
-    with open(file_name, 'w') as f:
-        f.writelines(lines)
     
 def read_inputs(chapter: str):
     path = get_file_url(chapter, textbook_chapter_to_name[chapter])
@@ -135,16 +130,18 @@ def latex_to_markdown(latex_lines: list):
 
 # region latex helpers
 def numbers_to_latex_equations(paragraph: str):
-    my_str = 'one,two-three,four'
-    my_list = re.split(r' |-', paragraph)
+    # my_str = 'one,two-three,four'
+    # my_list = re.split(r' |-', paragraph)
     words = paragraph.split(' ')
     for i, word in enumerate(words):
+        if len(word) == 0:
+            continue
         suffix = word[-1] if word[-1] == ',' or word[-1] == '.' else ''
         word = word[:-1] if word[-1] == ',' or word[-1] == '.' else word
         if word.isnumeric():
             words[i] = f'${word}${suffix}'
         elif word.startswith("\\$") and word[2:].isnumeric():
-            words[i] = f'$${word[2:]}${suffix}'
+            words[i] = f'\$${word[2:]}${suffix}'
     return ' '.join(words)
 # i = re.sub(r"\d+", r"[\g<0>]", i)
 # endregion

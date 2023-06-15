@@ -1,2 +1,3 @@
 .env
 questions/
+__pycache__/
