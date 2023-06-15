@@ -8,6 +8,7 @@ from table import latex_table_to_md, find_all_figures
 import pandoc
 from pdf2image import convert_from_path, convert_from_bytes
 import tempfile
+import re
 load_dotenv()
 
 # region settings
@@ -134,23 +135,49 @@ def latex_to_markdown(latex_lines: list):
 
 # region latex helpers
 def numbers_to_latex_equations(paragraph: str):
+    my_str = 'one,two-three,four'
+    my_list = re.split(r' |-', paragraph)
     words = paragraph.split(' ')
     for i, word in enumerate(words):
+        suffix = word[-1] if word[-1] == ',' or word[-1] == '.' else ''
+        word = word[:-1] if word[-1] == ',' or word[-1] == '.' else word
         if word.isnumeric():
-            words[i] = f'${word}$'
+            words[i] = f'${word}${suffix}'
+        elif word.startswith("\\$") and word[2:].isnumeric():
+            words[i] = f'$${word[2:]}${suffix}'
     return ' '.join(words)
 # i = re.sub(r"\d+", r"[\g<0>]", i)
 # endregion
 
+def generate_random_choices(num_choices: int):
+    choices = [{"value": f"'{i}'", "correct": False, "feedback": '"This is a random number, you probably selected this choice by mistake! Try again please!"'} for i in range(num_choices)]
+    # TODO: add actual choices
+    correct = random.randint(0, num_choices-1)
+    choices[correct]["correct"] = True
+    choices[correct]["feedback"] = '"Correct!"'
+    return choices
+
 # region read textbook
 def guess_question_type(question: str):
     question = question.strip().lower()
-    numeric_phrases = ['how many', 'what percent']
-    multiple_choice_phrases = ['what is', 'which group']
-    long_text_phrases = ['describe', 'explain', 'why']
+    numeric_phrases = ['what percent', 'calculate']
+    integer_phrases = ['how many']
+    multiple_choice_phrases = ['what is', 'which group', 'identify', 'each variable',]
+    long_text_phrases = ['describe', 'explain', 'why', 'comment on']
+    drop_down_phrases = []
+
+    for ph in long_text_phrases:
+        if ph in question:
+            return {'type': 'longtext'}
+    for ph in drop_down_phrases:
+        if ph in question:
+            return {'type': 'dropdown', 'choices': generate_random_choices(4)}
     for ph in numeric_phrases:
         if ph in question:
             return {'type': 'number-input'}
+    for ph in integer_phrases:
+        if ph in question:
+            return {'type': 'number-input', 'sigfigs': 'integer'}
     for ph in multiple_choice_phrases:
         if ph in question:
             choices = [{"value": f"'{i}'", "correct": False, "feedback": '"This is a random number, you probably selected this choice by mistake! Try again please!"'} for i in range(4)]
@@ -158,16 +185,10 @@ def guess_question_type(question: str):
             correct = random.randint(0, 3)
             choices[correct]["correct"] = True
             choices[correct]["feedback"] = '"Correct!"'
-            return {'type': 'multiple-choice', 'choices': choices}
-            # data2["params"]["part1"]["ans1"]["value"] = pbh.roundp(42)
-            # data2["params"]["part1"]["ans1"]["correct"] = False
-            # data2["params"]["part1"]["ans1"]["feedback"] = "This is a random number, you probably selected this choice by mistake! Try again please!"
-    for ph in numeric_phrases:
-        if ph in question:
-            return {'type': 'longtext'}
+            return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
     return {'type': 'unknown'}
 
-def handle_parts(lines, starting_index):
+def handle_parts(lines, starting_index, title: str):
     start = -1
     index = starting_index
     while index < len(lines):
@@ -185,9 +206,12 @@ def handle_parts(lines, starting_index):
         if x.strip() == '':
             continue
         question = x.replace('\\\\','\n').strip()
+        info = guess_question_type(question)
+        if info['type'] == 'unknown':
+            info = guess_question_type(title)
         parts.append({
             'question': numbers_to_latex_equations(question),
-            'info': guess_question_type(question),
+            'info': info,
         })
     return parts
 
@@ -258,15 +282,16 @@ def get_exercises(chapter: str, section: str, questions):
                 if table is not None:
                     non_text_description_lines.append(table)
 
+                description = format_description(description, non_text_description_lines)
                 #endregion
 
                 #region parts
-                parts = handle_parts(lines, description_end_index)
+                parts = handle_parts(lines, description_end_index, description)
                 #endregion
 
                 exercises.append({
                     "title": title,
-                    "description": format_description(description, non_text_description_lines),
+                    "description": description,
                     "parts": parts,
                     "chapter": chapter,
                     "path": f"q{str(question).zfill(2)}_{section}.md",
@@ -301,7 +326,7 @@ def md_part_lines(part, i):
     answer_section = ''
     if q_type == 'number-input':
         answer_section ='Please enter in a numeric value.\n'
-    elif q_type == 'multiple-choice':
+    elif q_type == 'multiple-choice' or q_type == 'dropdown':
         choices = part['info']['choices']
         answer_section = '\n'.join([f'- {{{{ params.part{i+1}.ans{j+1}.value }}}}' for j in range(len(choices))])
     # answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
@@ -325,6 +350,8 @@ def format_type_info(info: dict):
     list = [f'type: {info["type"]}']
     if info_type == 'longtext':
         list.append('gradingMethod: Manual')
+    if info_type == 'number-input' and 'sigfigs' in info and info['sigfigs'] == 'integer':
+        list.append('label: $d=$')
     return apply_indent(list, indent)
 
 def get_pl_customizations(info: dict = {}):
@@ -336,7 +363,7 @@ def get_pl_customizations(info: dict = {}):
     elif type == 'number-input':
         # TODO: need to know if integer or not
         if 'sigfigs' in info and info['sigfigs'] == 'integer':
-            ans = ['label: $d= $', 'weight: 1', 'allow-blank: true']
+            ans = ['weight: 1', 'allow-blank: true'] #'label: $d= $', 
         else:
             ans = ['rtol: 0.05', 'weight: 1', 'allow-blank: true', 'label: $d= $', 'suffix: m']
         # ans = ['weight: 1', 'allow-blank: true'] # for integer
@@ -355,8 +382,8 @@ def write_code(exercise: dict):
     indent = '        '
     lines = ["data2 = pbh.create_data2()", "",]
     for part_num, part in enumerate(exercise['parts']):
-        if part['info']['type'] == 'multiple-choice':
-            lines.append(f"# Part {part_num+1} is a multiple choice question.")
+        if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':
+            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             for choice_num, choice in enumerate(part['info']['choices']):
                 for (key, val) in choice.items():
                     lines += [f"data2['params']['part{part_num+1}']['ans{choice_num+1}']['{key}'] = {val}"]
