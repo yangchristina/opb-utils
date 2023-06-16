@@ -111,8 +111,10 @@ def remove_tags(string: str):
     return string
 
 def write_file(path, lines, mode='a'):
+    while lines[-1].strip() == '':
+        lines.pop()
     with open(path, mode) as f:
-        f.writelines([line + '\n' for line in lines])
+        f.writelines([line.strip() + '\n' for line in lines])
 # endregion
 
 
@@ -470,11 +472,16 @@ def write_md(exercise):
     if len(exercise['assets']) > 0:
         lines_to_write.append('')
 
+    has_long_text = False
     for i, part in enumerate(exercise['parts']):
         lines_to_write += md_part_lines(part, i=i)
+        if part['info']['type'] == 'longtext':
+            has_long_text = True
     print("WRITING TO", path)
     write_file(path, lines_to_write)
     print(''.join(exercise['path'].split('.')[:-1]))
+    if has_long_text:
+        shutil.copyfile('sample.html', f'{dir_path}/sample.html')
     # write_file('question-paths.txt', [path])
 # endregion
 

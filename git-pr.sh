@@ -1,4 +1,6 @@
 #!/bin/bash
+/Users/christinayang/miniconda3/bin/python /Users/christinayang/Documents/GitHub/OPB/opb-utils/issues-to-questions.py
+
 PL_QUESTION_PATH=/Users/christinayang/Documents/GitHub/OPB/pl-opb-ind100/questions/FM
 CHECKQ=/Users/christinayang/Documents/GitHub/OPB/instructor_stats_bank/scripts/checkq.py
 WRITE_PATH=/Users/christinayang/Documents/GitHub/OPB/instructor_stats_bank/source/unsorted
@@ -11,16 +13,26 @@ do
     cd /Users/christinayang/Documents/GitHub/OPB/instructor_stats_bank
     echo "HII"
     echo $FILE
-    git checkout main
+    # git pull origin main
+    # git merge origin main
     git reset --hard origin/main
     # python $CHECKQ $FILE --output_root $PL_QUESTION_PATH
-    echo $FILE;
+    echo $FILE
     out="$(basename $FILE .md)"
-    git switch -c $out
+    # git checkout master
+    # git pull origin master
+    git checkout -B $out
+    git pull origin $out
+    # git merge master
+    # git switch $out
     mv /Users/christinayang/Documents/GitHub/OPB/opb-utils/questions/$out $WRITE_PATH
-    git add source/unsorted/$out
-    # git commit -m "First draft of $out"
+    echo "ADDING $WRITE_PATH/$out"
+    ls
+    git add $WRITE_PATH/$out
+    git commit -m "First draft of $out"
     # git push
-    # do echo $FILE; 
+    git push -f -u origin $out
+    echo "PUSHED $FILE SUCCESSFULLY"
     cd /Users/christinayang/Documents/GitHub/OPB/opb-utils
+    # break
 done
