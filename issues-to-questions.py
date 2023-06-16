@@ -30,8 +30,8 @@ textbook_chapter_to_name = {
 # endregion
 
 # region general helpers
-def str_to_filename(string: str):
-    return ''.join(e for e in string if e.isalnum() or e == '_')
+def str_to_filename(string: str, delimiter='_'):
+    return ''.join(e for e in string.lower().replace(' ', delimiter).replace(".", delimiter) if e.isalnum() or e == delimiter)
 
 def get_file_url(chapter: str, filename: str):
     if not filename.endswith('.tex'):
@@ -110,8 +110,8 @@ def remove_tags(string: str):
         # print("AFTER:", string)
     return string
 
-def write_file(path, lines):
-    with open(path, 'a') as f:
+def write_file(path, lines, mode='a'):
+    with open(path, mode) as f:
         f.writelines([line + '\n' for line in lines])
 # endregion
 
@@ -159,9 +159,9 @@ def guess_question_type(question: str):
     question = question.strip().lower()
     numeric_phrases = ['what percent', 'calculate']
     integer_phrases = ['how many']
-    multiple_choice_phrases = ['what is', 'which group', 'identify', 'each variable',]
+    multiple_choice_phrases = ['what is', 'which group', 'identify', 'each variable', 'what are']
     long_text_phrases = ['describe', 'explain', 'why', 'comment on']
-    drop_down_phrases = []
+    drop_down_phrases = ['determine which of']
 
     for ph in long_text_phrases:
         if ph in question:
@@ -192,13 +192,32 @@ def handle_parts(lines, starting_index, title: str):
         line = lines[index]
         if '\\begin{parts}' in line:
             start = index
-        if start != -1 and '\\end{parts}' in line:
+        if ('\\end{parts}' in line or '}{}' in line or '%' in line):
+            if start == -1:
+                break
             end = index
             break
         index += 1
-    items = ' '.join(lines[start+1:end]).split('\\item')
 
     parts = []
+    items = []
+    if start == -1:
+        sentences = [sentence for sentence in title.split('.') if sentence.strip() != '']
+        split_index = -1
+        # for i, sent in enumerate(sentences.reverse()):
+        #     if '?' in sent:
+        #         split_index = len(sentences) - i
+        #         break
+        # if split_index == -1:
+        # info = guess_question_type(title)
+        items = [sentences[-1]]
+        # else:
+        #     return [{
+        #         'question': numbers_to_latex_equations('.'.join(sentences[split_index-1:])),
+        #     }]
+    else:
+        items = ' '.join(lines[start+1:end]).split('\\item')
+
     for x in items:
         if x.strip() == '':
             continue
@@ -227,7 +246,7 @@ def get_exercises(chapter: str, section: str, questions):
     for i, line in enumerate(lines):
         if cur_question >= len(questions):
             break
-        question = questions[cur_question]
+        question = questions[cur_question]['question_number']
         line = line.strip()
         if line.startswith("% ") and lines[i + 2].strip().startswith('\eoce{\qt{'):
             if int(line.split(' ')[-1]) != question:
@@ -272,10 +291,12 @@ def get_exercises(chapter: str, section: str, questions):
                 description_lines[-1] = description_lines[-1].split(target)[0]
                 description = ' '.join(description_lines).strip()
                 description = remove_unmatched_closing(description)
-
+                print("CUR DESCRIPTION")
+                print(description)
+                print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
                 non_text_description_lines = []
-                table = latex_table_to_md(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}'])
-                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}'])
+                table = latex_table_to_md(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
+                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
                 if table is not None:
                     non_text_description_lines.append(table)
 
@@ -285,14 +306,18 @@ def get_exercises(chapter: str, section: str, questions):
                 #region parts
                 parts = handle_parts(lines, description_end_index, description)
                 #endregion
+                if len(parts) == 1:
+                    description = '.'.join([sentence for sentence in description.split('.') if sentence.strip() != ''][:-1]) + '.'
 
+                filename = str_to_filename(questions[cur_question]['issue_title'], '_')
                 exercises.append({
                     "title": title,
                     "description": description,
                     "parts": parts,
                     "chapter": chapter,
-                    "path": f"q{str(question).zfill(2)}_{section}.md",
+                    "path": f"{filename}.md",
                     "assets": figures,
+                    "issue": questions[cur_question]['issue_title'],
                 })
                 cur_question += 1
 
@@ -308,7 +333,8 @@ def read_chapter(chapter: str, sections):
     results = []
     print(all_sections)
     for (section, questions) in sections.items():
-        questions.sort()
+        # question_numbers = [x['questions'] for x in questions]
+        questions.sort(key=lambda x: x['question_number'])
         section_index = all_sections.index(section)
         # file_questions = [q - summed_counts[section_index] for q in questions]
         results += get_exercises(chapter, section, questions)
@@ -448,8 +474,9 @@ def write_md(exercise):
         lines_to_write += md_part_lines(part, i=i)
     print("WRITING TO", path)
     write_file(path, lines_to_write)
+    print(''.join(exercise['path'].split('.')[:-1]))
+    # write_file('question-paths.txt', [path])
 # endregion
-
 
 if __name__ == "__main__":
     print('hi')
@@ -477,7 +504,8 @@ if __name__ == "__main__":
             sections_by_chapter[chapter] = {}
         if section_name not in sections_by_chapter[chapter]:
             sections_by_chapter[chapter][section_name] = []
-        sections_by_chapter[chapter][section_name].append(question)
+        sections_by_chapter[chapter][section_name].append({"question_number": question, 'issue_title': item.title})
     # print(sections_by_chapter)
     for (chapter, sections) in sections_by_chapter.items():
         read_chapter(chapter, sections)
+    # NOT IN CORRECT ORDER from .items
