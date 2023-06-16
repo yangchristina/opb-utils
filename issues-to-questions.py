@@ -114,7 +114,7 @@ def write_file(path, lines, mode='a'):
     while lines[-1].strip() == '':
         lines.pop()
     with open(path, mode) as f:
-        f.writelines([line.strip() + '\n' for line in lines])
+        f.writelines([line.rstrip()+ '\n' for line in lines])
 # endregion
 
 

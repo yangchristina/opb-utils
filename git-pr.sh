@@ -23,9 +23,11 @@ do
     # git pull origin master
     git checkout -B $out
     git pull origin $out
-    # git merge master
+    git merge $out
     # git switch $out
-    mv /Users/christinayang/Documents/GitHub/OPB/opb-utils/questions/$out $WRITE_PATH
+    # rm -R /Users/christinayang/Documents/GitHub/OPB/opb-utils/questions/$out/*
+    cp -R /Users/christinayang/Documents/GitHub/OPB/opb-utils/questions/$out $WRITE_PATH
+    # mv -f /Users/christinayang/Documents/GitHub/OPB/opb-utils/questions/$out $WRITE_PATH
     echo "ADDING $WRITE_PATH/$out"
     ls
     git add $WRITE_PATH/$out
@@ -33,6 +35,6 @@ do
     # git push
     git push -f -u origin $out
     echo "PUSHED $FILE SUCCESSFULLY"
-    cd /Users/christinayang/Documents/GitHub/OPB/opb-utils
+    # cd /Users/christinayang/Documents/GitHub/OPB/opb-utils
     # break
 done
