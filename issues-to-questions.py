@@ -499,9 +499,10 @@ def write_code(exercise: dict):
 
     variables = exercise['variables']
     # Randomize Variables
-    v = random.randint(2,7)
-    t = random.randint(5,10)
+    # v = random.randint(2,7)
+    # t = random.randint(5,10)
     used_by = {}
+    lines.append('# Randomize Variables')
     for (key, values) in variables.items():
         for (i, num) in enumerate(values):
             # check if num has been used previously
@@ -512,6 +513,7 @@ def write_code(exercise: dict):
             line = f"{cur_var_name} = {num}" if not used else f"{key}_num{i+1} = {used}"
             lines.append(line)
     lines.append('')
+    lines.append('# store the variables in the dictionary "params"')
     for (key, values) in variables.items():
         for (i, num) in enumerate(values):
             lines.append(f"data2['params']['{key}']['num{i+1}'] = {key}_num{i+1}")
