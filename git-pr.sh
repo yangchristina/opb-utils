@@ -31,7 +31,7 @@ do
     echo "ADDING $WRITE_PATH/$out"
     ls
     git add $WRITE_PATH/$out
-    git commit -m "Replace numbers with variables"
+    git commit -m "Replace numbers"
     # "First draft of $out"
     # git push
     git push -f -u origin $out
