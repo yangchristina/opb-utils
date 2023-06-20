@@ -100,6 +100,7 @@ def find_end_tag(string: str):
             return i
     raise Exception('Does not have ending tag')
 
+
 def remove_tags(string: str):
     while '\\' in string:
         index = string.index('\\')
@@ -110,7 +111,45 @@ def remove_tags(string: str):
         # print("AFTER:", string)
     return string
 
+def unwrap_tags(string: str):
+    while '\\' in string:
+        index = string.index('\\')
+        end_bracket_index = find_end_tag(string[index:])
+        tag_area = string[index:index+end_bracket_index+1]
+        wrapped_text = tag_area.split('{')[1].split('}')[0]
+        string = string[:index] + wrapped_text + string[index+end_bracket_index+1:]
+    return string
+
+def unwrap_unsupported_tags(stringV: str):
+    string = stringV.replace("\\\\", "\n").replace("``", '"').replace("''", '"')
+    supported_tags = ['\\textit{', '\\$']
+    unsupported_remove_entirely_tags = ['\\footfullcite', '\noindent']
+    # unsupported, \footfullcite + \noindent
+    result = ''
+    while '\\' in string:
+        index = string.index('\\')
+        matching_tags = [tag for tag in supported_tags if string[index:].startswith(tag)]
+        if len(matching_tags) > 0:
+            end_tag_index = find_end_tag(string[index:])+index if matching_tags[0].endswith("{") else index + len(matching_tags[0])-1
+            result += string[:index]
+            result += f'${string[index:end_tag_index+1]}$'
+            string = string[end_tag_index+1:]
+            continue
+        if '{' not in string[index+1:].split(' ')[0].split('}')[0]:
+            end_bracket_index = index + len(string[index+1:].split(' ')[0])
+            string = string[:index] + string[end_bracket_index+1:]
+            continue
+        end_bracket_index = find_end_tag(string[index:]) + index
+        tag_area = string[index:end_bracket_index+1]
+        wrapped_text = ''
+        if not any([tag_area.startswith(tag) for tag in unsupported_remove_entirely_tags]):
+            wrapped_text = tag_area.split('{')[1].split('}')[0]
+
+        string = string[:index] + wrapped_text + string[end_bracket_index+1:]
+    return result + string
+
 def write_file(path, lines, mode='a'):
+    lines = '\n'.join(lines).split('\n')
     while lines[-1].strip() == '':
         lines.pop()
     with open(path, mode) as f:
@@ -132,17 +171,32 @@ def latex_to_markdown(latex_lines: list):
 
 # region latex helpers
 
-def handle_latex_tags_in_text(paragraph: str, key: str):
-    supported_tags = ['\\textit']
-    tags = []
+# use unwrap_unsupported_tags instead
+# def handle_latex_tags_in_text(paragraph: str, key: str):
+#     paragraph = paragraph.replace('\\\\', '\n')
+#     supported_tags = ['\\textit']
+#     tags = []
 
-    words = paragraph.split(' ')
-    for i, word in enumerate(words):
-        if len(word) == 0:
-            continue
+#     chunks = paragraph.split('\\')
+#     res = ''
+#     for i, chunk in enumerate(chunks):
+#         is_supported = False
+#         for supported_tag in supported_tags:
+#             # ex. /textit{hello}, Bob
+#             if chunk.startswith(supported_tag):
+#                 chunks[i] = chunk[len(supported_tag):]
+#                 tags.append(supported_tag)
+#                 is_supported = True
+#                 break
+#         if not is_supported:
+#             remove_tags
+
+def string_is_numeric(s: str):
+    return s.lstrip("-").replace('.','',1).isdigit()
 
 def numbers_to_latex_equations(paragraph: str, key: str):
     numbers = []
+    # TODO: handle negative numbers
 
     words = paragraph.split(' ')
     for i, word in enumerate(words):
@@ -165,7 +219,7 @@ def numbers_to_latex_equations(paragraph: str, key: str):
                 break
         word = word.replace(',', '')  # ex. 1,000,000
 
-        if word.isnumeric():
+        if string_is_numeric(word):
             numbers.append(float(word))
             words[i] = f'{prefix}${{{{ params.{key}.num{len(numbers)} }}}}${suffix}'
     return ' '.join(words), numbers
@@ -254,7 +308,7 @@ def handle_parts(lines, starting_index, title: str):
             info = guess_question_type(title)
         
         num_key = f'part{len(parts)+1}'
-        extracted_question, question_numbers = numbers_to_latex_equations(question, num_key)
+        extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
         parts.append({
             'question': extracted_question,
             'info': info,
@@ -265,7 +319,7 @@ def handle_parts(lines, starting_index, title: str):
 
 def format_description(description: str, non_text_lines: list):
     non_text = '\n\n' + '\n'.join(non_text_lines) if len(non_text_lines) > 0 else ''
-    extracted_question, question_numbers = numbers_to_latex_equations(description, 'description')
+    extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(description), 'description')
     text = extracted_question + non_text
     return text, question_numbers
 
@@ -330,7 +384,7 @@ def get_exercises(chapter: str, section: str, questions):
                 # print(description)
                 # print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
                 non_text_description_lines = []
-                print(f'i: {i}, Question: {question}')
+                # print(f'i: {i}, Question: {question}')
                 table = latex_table_to_md(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
                 figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '%'])
                 if table is not None:
@@ -415,7 +469,7 @@ def format_type_info(info: dict):
         list.append('label: $d=$')
     return apply_indent(list, indent)
 
-def get_pl_customizations(info: dict = {}):
+def get_pl_customizations(info: dict = {}, index: int = 0):
     type = info['type']
     pl_indent = '    '
     ans = []
@@ -435,7 +489,7 @@ def get_pl_customizations(info: dict = {}):
     elif type == 'symbolic-input':
         ans = ['label: $F_r = $', 'variables: "m, v, r"', 'weight: 1', 'allow-blank: false']
     elif type == 'longtext':
-        ans = ['placeholder: "Type your answer here..."', 'file-name: "answer.html"', 'quill-theme: "snow"', 'directory: clientFilesQuestion', 'source-file-name: sample.html']
+        ans = ['placeholder: "Type your answer here..."', f'file-name: "answer{index+1}.html"', 'quill-theme: "snow"', 'directory: clientFilesQuestion', 'source-file-name: sample.html']
     return ['  pl-customizations:'] + apply_indent(lines=ans, indent=pl_indent)
 
 
@@ -517,7 +571,7 @@ def write_md(exercise):
     # ]
     question_part_lines = []
     for (i, e) in enumerate(exercise['parts']):
-        question_lines = [f'part{i+1}:'] + format_type_info(e['info']) + get_pl_customizations(e['info'])
+        question_lines = [f'part{i+1}:'] + format_type_info(e['info']) + get_pl_customizations(e['info'], i)
         question_part_lines += question_lines
     lines_to_write += question_part_lines
     lines_to_write += ['---', '# {{ params.vars.title }}', '', exercise['description'], '']

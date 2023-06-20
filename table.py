@@ -87,10 +87,10 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
 def find_all_figures(latex_lines, starting_line_index, phrases_signalling_end=None):
     """Finds all figures in a latex document/string."""
     figures = []
-    print("in figures, starting index", starting_line_index)
+    # print("in figures, starting index", starting_line_index)
     for line in latex_lines[starting_line_index:]:
-        if (line.strip() != ''):
-            print(line)
+        # if (line.strip() != ''):
+        #     print(line)
         if phrases_signalling_end is not None:
             for end_phrase in phrases_signalling_end:
                 if end_phrase in line:
