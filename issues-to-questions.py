@@ -131,20 +131,44 @@ def latex_to_markdown(latex_lines: list):
     # webConverted = doc.markdown
 
 # region latex helpers
-def numbers_to_latex_equations(paragraph: str):
-    # my_str = 'one,two-three,four'
-    # my_list = re.split(r' |-', paragraph)
+
+def handle_latex_tags_in_text(paragraph: str, key: str):
+    supported_tags = ['\\textit']
+    tags = []
+
     words = paragraph.split(' ')
     for i, word in enumerate(words):
         if len(word) == 0:
             continue
-        suffix = word[-1] if word[-1] == ',' or word[-1] == '.' else ''
-        word = word[:-1] if word[-1] == ',' or word[-1] == '.' else word
+
+def numbers_to_latex_equations(paragraph: str, key: str):
+    numbers = []
+
+    words = paragraph.split(' ')
+    for i, word in enumerate(words):
+        if len(word) == 0:
+            continue
+        possible_prefixes = ['(', '[', '{', "\\$"]
+        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}']
+        prefix = ''
+        suffix = ''
+
+        for pre in possible_prefixes:
+            if word.startswith(pre):
+                word = word[len(pre):]
+                prefix = pre
+                break
+        for suf in possible_suffixes:
+            if word.endswith(suf):
+                word = word[:-len(suf)]
+                suffix = suf
+                break
+        word = word.replace(',', '')  # ex. 1,000,000
+
         if word.isnumeric():
-            words[i] = f'${word}${suffix}'
-        elif word.startswith("\\$") and word[2:].isnumeric():
-            words[i] = f'\$${word[2:]}${suffix}'
-    return ' '.join(words)
+            numbers.append(float(word))
+            words[i] = f'{prefix}${{{{ params.{key}.num{len(numbers)} }}}}${suffix}'
+    return ' '.join(words), numbers
 # i = re.sub(r"\d+", r"[\g<0>]", i)
 # endregion
 
@@ -190,6 +214,7 @@ def guess_question_type(question: str):
 def handle_parts(lines, starting_index, title: str):
     start = -1
     index = starting_index
+    number_variables = {}
     while index < len(lines):
         line = lines[index]
         if '\\begin{parts}' in line:
@@ -227,16 +252,22 @@ def handle_parts(lines, starting_index, title: str):
         info = guess_question_type(question)
         if info['type'] == 'unknown':
             info = guess_question_type(title)
+        
+        num_key = f'part{len(parts)+1}'
+        extracted_question, question_numbers = numbers_to_latex_equations(question, num_key)
         parts.append({
-            'question': numbers_to_latex_equations(question),
+            'question': extracted_question,
             'info': info,
         })
-    return parts
+        number_variables[num_key] = question_numbers
+    return parts, number_variables
 
 
 def format_description(description: str, non_text_lines: list):
     non_text = '\n\n' + '\n'.join(non_text_lines) if len(non_text_lines) > 0 else ''
-    return numbers_to_latex_equations(description) + non_text
+    extracted_question, question_numbers = numbers_to_latex_equations(description, 'description')
+    text = extracted_question + non_text
+    return text, question_numbers
 
 def get_exercises(chapter: str, section: str, questions):
     path = get_file_url(chapter, section)
@@ -254,6 +285,8 @@ def get_exercises(chapter: str, section: str, questions):
             if int(line.split(' ')[-1]) != question:
                 continue
             else:
+                print()
+                print(f'Question {question}, num: {int(line.split(" ")[-1])}, line: {i}')
                 #region title
                 title_end_index = i + 1
                 closing_line = -1
@@ -293,20 +326,22 @@ def get_exercises(chapter: str, section: str, questions):
                 description_lines[-1] = description_lines[-1].split(target)[0]
                 description = ' '.join(description_lines).strip()
                 description = remove_unmatched_closing(description)
-                print("CUR DESCRIPTION")
-                print(description)
-                print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
+                # print("CUR DESCRIPTION")
+                # print(description)
+                # print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
                 non_text_description_lines = []
+                print(f'i: {i}, Question: {question}')
                 table = latex_table_to_md(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
-                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
+                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '%'])
                 if table is not None:
                     non_text_description_lines.append(table)
 
-                description = format_description(description, non_text_description_lines)
+                description, question_numbers = format_description(description, non_text_description_lines)
                 #endregion
 
                 #region parts
-                parts = handle_parts(lines, description_end_index, description)
+                parts, number_variables = handle_parts(lines, description_end_index, description)
+                number_variables['description'] = question_numbers
                 #endregion
                 if len(parts) == 1:
                     description = '.'.join([sentence for sentence in description.split('.') if sentence.strip() != ''][:-1]) + '.'
@@ -320,6 +355,7 @@ def get_exercises(chapter: str, section: str, questions):
                     "path": f"{filename}.md",
                     "assets": figures,
                     "issue": questions[cur_question]['issue_title'],
+                    "variables": number_variables,
                 })
                 cur_question += 1
 
@@ -333,7 +369,7 @@ def read_chapter(chapter: str, sections):
     summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
     
     results = []
-    print(all_sections)
+    # print(all_sections)
     for (section, questions) in sections.items():
         # question_numbers = [x['questions'] for x in questions]
         questions.sort(key=lambda x: x['question_number'])
@@ -406,6 +442,27 @@ def get_pl_customizations(info: dict = {}):
 def write_code(exercise: dict):
     indent = '        '
     lines = ["data2 = pbh.create_data2()", "",]
+
+    variables = exercise['variables']
+    # Randomize Variables
+    v = random.randint(2,7)
+    t = random.randint(5,10)
+    used_by = {}
+    for (key, values) in variables.items():
+        for (i, num) in enumerate(values):
+            # check if num has been used previously
+            cur_var_name = f"{key}_num{i+1}"
+            used = used_by[num] if (num in used_by) else ''
+            if not used:
+                used_by[num] = cur_var_name
+            line = f"{cur_var_name} = {num}" if not used else f"{key}_num{i+1} = {used}"
+            lines.append(line)
+    lines.append('')
+    for (key, values) in variables.items():
+        for (i, num) in enumerate(values):
+            lines.append(f"data2['params']['{key}']['num{i+1}'] = {key}_num{i+1}")
+    lines.append('')
+
     for part_num, part in enumerate(exercise['parts']):
         if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':
             lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
@@ -432,6 +489,7 @@ def write_md(exercise):
     shutil.copyfile('q11_multi-part.md', path)
     replace_file_line(path, 1, f"title: {exercise['title']}")
 
+    # TODO: write expression
     lines_to_write = []
     asset_lines = ["assets:"]
     asset_to_filename = {}
@@ -479,7 +537,7 @@ def write_md(exercise):
             has_long_text = True
     print("WRITING TO", path)
     write_file(path, lines_to_write)
-    print(''.join(exercise['path'].split('.')[:-1]))
+    # print(''.join(exercise['path'].split('.')[:-1]))
     if has_long_text:
         shutil.copyfile('sample.html', f'{dir_path}/sample.html')
     # write_file('question-paths.txt', [path])

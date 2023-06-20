@@ -13,6 +13,7 @@ Options:
     --output_root=<str>          Location where the question folder should export [default: ../../pl-opb-ind100/questions].
 """
 
+import shutil
 from docopt import docopt
 import problem_bank_scripts as pbs
 import pathlib
@@ -32,6 +33,15 @@ def main():
     try:
         print(f"Processing question: {question}")
         pbs.process_question_pl(question, output_path=output_dir)
+        src_dir = '/'.join(question.split('/')[:-1])
+        dst_dir = f'{"/".join(output_dir.split("/")[:-1])}/clientFilesQuestion'
+        for basename in os.listdir(src_dir):
+            if not basename.endswith('.md'):
+                pathname = os.path.join(src_dir, basename)
+                if os.path.isfile(pathname):
+                    if not os.path.exists(dst_dir):
+                        os.mkdir(dst_dir)
+                    shutil.copy2(pathname, dst_dir)
 
         print(f"\t Moved file to location: {output_dir}")
 

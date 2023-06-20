@@ -48,7 +48,7 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
                 arr += [''] * (length - 1)
                 continue
             arr.append(col)
-        matrix[i] = [x.strip() or '&nbsp;' for x in arr]
+        matrix[i] = [x.strip() or '.' for x in arr]
         # num_cols = sum([int(col.split('\multicolumn{')[-1].split('}')[0]) + 1 if '\multicolumn{' in col else 1 for col in matrix[0]])
 
     # Remove empty rows + columns
@@ -84,10 +84,13 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
 
     return '\n'.join(md_lines).replace('\\\\', '')
 
-def find_all_figures(latex_lines, starting_index, phrases_signalling_end=None):
+def find_all_figures(latex_lines, starting_line_index, phrases_signalling_end=None):
     """Finds all figures in a latex document/string."""
     figures = []
-    for line in latex_lines:
+    print("in figures, starting index", starting_line_index)
+    for line in latex_lines[starting_line_index:]:
+        if (line.strip() != ''):
+            print(line)
         if phrases_signalling_end is not None:
             for end_phrase in phrases_signalling_end:
                 if end_phrase in line:
