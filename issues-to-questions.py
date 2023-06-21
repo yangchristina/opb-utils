@@ -1,7 +1,6 @@
 import random
 from github import Github
 import shutil
-import json
 import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
@@ -266,6 +265,7 @@ def guess_question_type(question: str):
     return {'type': 'unknown'}
 
 def handle_parts(lines, starting_index, title: str):
+    additional_assets = set()
     start = -1
     index = starting_index
     number_variables = {}
@@ -313,8 +313,10 @@ def handle_parts(lines, starting_index, title: str):
             'question': extracted_question,
             'info': info,
         })
+        if info['type'] == 'longtext':
+            additional_assets.add('sample.html')
         number_variables[num_key] = question_numbers
-    return parts, number_variables
+    return parts, number_variables, additional_assets
 
 
 def format_description(description: str, non_text_lines: list):
@@ -394,7 +396,7 @@ def get_exercises(chapter: str, section: str, questions):
                 #endregion
 
                 #region parts
-                parts, number_variables = handle_parts(lines, description_end_index, description)
+                parts, number_variables, additional_assets = handle_parts(lines, description_end_index, description)
                 number_variables['description'] = question_numbers
                 #endregion
                 if len(parts) == 1:
@@ -407,7 +409,7 @@ def get_exercises(chapter: str, section: str, questions):
                     "parts": parts,
                     "chapter": chapter,
                     "path": f"{filename}.md",
-                    "assets": figures,
+                    "assets": figures + list(additional_assets),
                     "issue": questions[cur_question]['issue_title'],
                     "variables": number_variables,
                 })
@@ -550,6 +552,9 @@ def write_md(exercise):
     asset_lines = ["assets:"]
     asset_to_filename = {}
     for a in exercise['assets']:
+        if a.endswith('.html'):
+            asset_lines.append(f"- {a}")
+            continue
         figure_dir_path = f"{TEXTBOOK_PATH}/{textbook_chapter_to_name[chapter]}/figures/{a}"
         figure_name = os.listdir(figure_dir_path)[0]
         figure_no_extension_name, ext = figure_name.split('.')
@@ -580,6 +585,8 @@ def write_md(exercise):
     
     # TODO: ADD ASSETS HERE, how should assets be formatted?, since parts assets + main assets
     for a in exercise['assets']:
+        if not a.endswith('.jpg') or not a.endswith('.jpeg') or not a.endswith('.png'):
+            continue
         filename = asset_to_filename[a]
         img = f'<img src="{filename}" width=400>'
         lines_to_write.append(img)
