@@ -5,7 +5,7 @@ import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
 from pdf2image import convert_from_path
-from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str
+from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str, extract_first_number
 import tempfile
 import re
 from dotenv import load_dotenv
@@ -132,13 +132,13 @@ def generate_random_choices(num_choices: int):
     choices[correct]["feedback"] = '"Correct!"'
     return choices
 
+
 # region read textbook
 def guess_question_type(question: str):
     question = question.strip().lower()
     numeric_phrases = ['what percent', 'calculate', 'how many']
-    integer_phrases = ['how many']
-    multiple_choice_phrases = ['what is', 'which group', 'identify', 'each variable', 'what are']
-    long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation']
+    multiple_choice_phrases = ['what is', 'which group', 'each variable', 'what are']
+    long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify']
     drop_down_phrases = ['determine which of']
 
     info_dict = {
@@ -146,6 +146,20 @@ def guess_question_type(question: str):
         'how many': {'sigfigs': 'integer'},
     }
 
+    multi_part_direct_match = {
+        'who are the subjects in this study, and how many are included?': [
+            {'type': 'longtext', 'question': 'Who are the subjects in this study',
+                'extract_solution': lambda x: ' '.join(x.strip().split(' ')[1:]),
+            },
+            {'type': 'number-input', 'sigfigs': 'integer', 'question': 'How many of the above subjects are included?',
+                'extract_solution': extract_first_number,
+            },
+        ]}
+    if question in multi_part_direct_match:
+        return multi_part_direct_match[question]
+
+    if question.count('if') > 1:
+        return {'type': 'dropdown', 'choices': generate_random_choices(4)}
     for ph in long_text_phrases:
         if ph in question:
             return {'type': 'longtext'}
@@ -155,9 +169,6 @@ def guess_question_type(question: str):
     for ph in numeric_phrases:
         if ph in question:
             return {'type': 'number-input', **info_dict[ph]}
-    # for ph in integer_phrases:
-    #     if ph in question:
-    #         return {'type': 'number-input', 'sigfigs': 'integer'}
     for ph in multiple_choice_phrases:
         if ph in question:
             choices = [{"value": f"'{i}'", "correct": False, "feedback": '"This is a random number, you probably selected this choice by mistake! Try again please!"'} for i in range(4)]
@@ -168,7 +179,8 @@ def guess_question_type(question: str):
             return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
     return {'type': 'unknown'}
 
-def handle_parts(lines, starting_index, title: str):
+
+def handle_parts(lines, starting_index, title: str, solutions):
     additional_assets = set()
     start = -1
     index = starting_index
@@ -203,16 +215,13 @@ def handle_parts(lines, starting_index, title: str):
     else:
         items = ' '.join(lines[start+1:end]).split('\\item')
 
-    for x in items:
-        if x.strip() == '':
-            continue
-        question = x.replace('\\\\','\n').strip()
-        info = guess_question_type(question)
+    def create_part(question, info):
         if info['type'] == 'unknown':
             info = guess_question_type(title)
-        
         num_key = f'part{len(parts)+1}'
+
         extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
+
         parts.append({
             'question': extracted_question,
             'info': info,
@@ -220,6 +229,37 @@ def handle_parts(lines, starting_index, title: str):
         if info['type'] == 'longtext':
             additional_assets.add('sample.html')
         number_variables[num_key] = question_numbers
+
+    for x in items:
+        if x.strip() == '':
+            continue
+        question = x.replace('\\\\','\n').strip()
+        info = guess_question_type(question)
+        if type(info) is list:
+            solutions_to_insert = []
+            solution_index = len(parts)
+            for item in info:
+                create_part(item['question'], item)
+                solutions_to_insert.append(item['extract_solution'](solutions[solution_index]))
+            solutions.pop(solution_index)
+            solutions[solution_index:solution_index] = solutions_to_insert
+            print()
+            print('solutions')
+            print(solutions)
+            print(info)
+            print()
+            # TODO: handle solutions
+        else: 
+        # num_key = f'part{len(parts)+1}'
+        # extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
+            create_part(question, info)
+        # parts.append({
+        #     'question': extracted_question,
+        #     'info': info,
+        # })
+        # if info['type'] == 'longtext':
+        #     additional_assets.add('sample.html')
+        # number_variables[num_key] = question_numbers
     return parts, number_variables, additional_assets
 
 
@@ -232,6 +272,7 @@ def format_description(description: str, non_text_lines: list):
 def get_exercises(chapter: str, section: str, questions, solutions_dict):
     path = get_file_url(chapter, section)
     lines = [x.strip() for x in read_file(path)]
+
     # print(path)
     # print(questions)
     exercises = []
@@ -246,6 +287,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
             if int(line.split(' ')[-1]) != question:
                 continue
             else:
+                solutions = [x.replace("\\\\", "").strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
                 print()
                 print(f'Question {question}, num: {int(line.split(" ")[-1])}, line: {i}')
                 #region title
@@ -301,7 +343,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 #endregion
 
                 #region parts
-                parts, number_variables, additional_assets = handle_parts(lines, description_end_index, description)
+                parts, number_variables, additional_assets = handle_parts(lines, description_end_index, description, solutions)
                 number_variables['description'] = question_numbers
                 #endregion
                 if len(parts) == 1:
@@ -317,11 +359,11 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                     "assets": figures + list(additional_assets),
                     "issue": questions[cur_question]['issue_title'],
                     "variables": number_variables,
-                    "solutions": [x.replace("\\\\", "").strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
+                    "solutions": solutions,
                 })
                 cur_question += 1
 
-    print("CHAPTER", chapter)
+    # print("CHAPTER", chapter)
     # print(json.dumps(exercises, indent=4))
     # print(len(exercises))
     return exercises
@@ -329,8 +371,8 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
 
 def find_solutions(chapter_title: str, questions: list):
     path = f"{TEXTBOOK_PATH}/extraTeX/eoceSolutions/eoceSolutions.tex"
-    print("SOLUTIONS", chapter_title)
-    print(questions)
+    # print("SOLUTIONS", chapter_title)
+    # print(questions)
     res = {}
     # questions.sort()
     with open(path) as reader:
@@ -341,7 +383,7 @@ def find_solutions(chapter_title: str, questions: list):
         question = get_between_tag(question, '\\eocesol{').strip()
         res[question_num] = question
         print("QUESTION", question_num, '\n')
-        print(question)
+        # print(question)
     return res
 
 
@@ -476,6 +518,9 @@ def write_code(exercise: dict):
             lines.append('')
         if part['info']['type'] == 'number-input':
             numeric_answer = None
+            if len(exercise['solutions'][part_num].strip().split(' ')) == 1 and string_is_numeric(exercise['solutions'][part_num].replace(',', '').strip()):
+                numeric_answer = float(exercise['solutions'][part_num].replace(',', '').strip())
+                exercise['solutions'][part_num] = f'{{{{ correct_answers.part{part_num+1}_ans }}}}'
             if len(list(filter(None, exercise['solutions'][part_num].split('\n')))) == 1 and '\\rightarrow' in exercise['solutions'][part_num]:
                 numeric_answer = 1
                 answer_section: str = exercise['solutions'][part_num].split('\\rightarrow')[-1].strip()

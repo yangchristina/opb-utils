@@ -6,3 +6,7 @@ pl.sh: moves questions in /questions into prairelearn
 git-pr.sh: pushes questions in /questions to github (different branch for each question)
 
 To use: create .env file, and copy .env.example there, and fill in
+
+TODOS:
+- table to params for easy randomization
+- when matching supported: change ifs to match matching instead of dropdown
