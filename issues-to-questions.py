@@ -317,7 +317,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                     "assets": figures + list(additional_assets),
                     "issue": questions[cur_question]['issue_title'],
                     "variables": number_variables,
-                    "solutions": solutions_dict[question]
+                    "solutions": [x.replace("\\\\", "").strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
                 })
                 cur_question += 1
 
@@ -475,8 +475,22 @@ def write_code(exercise: dict):
                 lines.append('')
             lines.append('')
         if part['info']['type'] == 'number-input':
+            numeric_answer = None
+            if len(list(filter(None, exercise['solutions'][part_num].split('\n')))) == 1 and '\\rightarrow' in exercise['solutions'][part_num]:
+                numeric_answer = 1
+                answer_section: str = exercise['solutions'][part_num].split('\\rightarrow')[-1].strip()
+                while not answer_section[-1].isdigit():
+                    answer_section = answer_section[:-1]
+                while not answer_section[0].isdigit() and not answer_section[0] == '-':
+                    answer_section = answer_section[1:]
+                numeric_answer = (float(answer_section.strip()))
+                split = exercise['solutions'][part_num].split('\\rightarrow')
+                split[-1] = split[-1].replace(answer_section, f'{{{{ correct_answers.part{part_num+1}_ans }}}}')
+                exercise['solutions'][part_num] = '\\rightarrow'.join(split)
             lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
-            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = 0  # TODO: insert correct answer here")
+            end_note = '' if numeric_answer is not None else '# TODO: insert correct answer here'
+            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = {numeric_answer or 0}  {end_note}")
+            lines.append('')
 
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
@@ -487,7 +501,7 @@ def write_code(exercise: dict):
 
 # region write_md
 def write_md(exercise):
-    solutions = [x.replace("\\\\", "").strip() for x in re.split('\([a-z]\)~', exercise['solutions']) if x.strip() != '']
+    solutions = exercise['solutions']
     
     dir_path = WRITE_PATH + '/' + ''.join(exercise['path'].split('.')[:-1])
     path = dir_path + '/' + exercise['path'] 
@@ -522,7 +536,6 @@ def write_md(exercise):
     lines_to_write.append("server:\n  imports: |\n        import random\n        import pandas as pd\n        import problem_bank_helpers as pbh")
     lines_to_write.append("  generate: |")
     code_lines, params_dict = write_code(exercise)
-    print("params_dict", params_dict)
     lines_to_write += code_lines
     lines_to_write.append("  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass")
     # lines_to_write += [
