@@ -5,7 +5,7 @@ import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
 from pdf2image import convert_from_path
-from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag
+from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str
 import tempfile
 import re
 from dotenv import load_dotenv
@@ -120,38 +120,7 @@ def latex_to_markdown(latex_lines: list):
 #         if not is_supported:
 #             remove_tags
 
-def string_is_numeric(s: str):
-    return s.lstrip("-").replace('.','',1).isdigit()
 
-def numbers_to_latex_equations(paragraph: str, key: str):
-    numbers = []
-    # TODO: handle negative numbers
-
-    words = paragraph.split(' ')
-    for i, word in enumerate(words):
-        if len(word) == 0:
-            continue
-        possible_prefixes = ['(', '[', '{', "\\$"]
-        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}']
-        prefix = ''
-        suffix = ''
-
-        for pre in possible_prefixes:
-            if word.startswith(pre):
-                word = word[len(pre):]
-                prefix = pre
-                break
-        for suf in possible_suffixes:
-            if word.endswith(suf):
-                word = word[:-len(suf)]
-                suffix = suf
-                break
-        word = word.replace(',', '')  # ex. 1,000,000
-
-        if string_is_numeric(word):
-            numbers.append(float(word))
-            words[i] = f'{prefix}${{{{ params.{key}.num{len(numbers)} }}}}${suffix}'
-    return ' '.join(words), numbers
 # i = re.sub(r"\d+", r"[\g<0>]", i)
 # endregion
 
@@ -262,7 +231,6 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
     # print(questions)
     exercises = []
 
-    ")~"
     cur_question = 0
     for i, line in enumerate(lines):
         if cur_question >= len(questions):
@@ -396,8 +364,7 @@ def read_chapter(chapter: str, sections):
     # print(json.dumps(results, indent=4))
 # endregion read textbook
 
-def md_part_lines(part, i, solution=None):
-    print("PART", solution)
+def md_part_lines(part, i, params=None, solution=None):
     q_type = part['info']['type']
     answer_section = ''
     if q_type == 'number-input':
@@ -420,7 +387,11 @@ def md_part_lines(part, i, solution=None):
         ]
     
     if solution:
-        result += ['### pl-answer-panel', '', f'Part {i+1}: {solution}\n', '']
+        if params:
+            formated_soln = apply_params_to_str(solution, params)
+            result += ['### pl-answer-panel', '', f'Part {i+1}: {formated_soln}', '']
+        else:
+            result += ['### pl-answer-panel', '', f'Part {i+1}: {solution}', '']
     
     return result + ['']
 
@@ -498,7 +469,7 @@ def write_code(exercise: dict):
             lines.append('')
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
-    return apply_indent(lines, indent)
+    return apply_indent(lines, indent), used_by
         # data2["params"]["part1"]["ans1"]["value"] = pbh.roundp(42)
         # data2["params"]["part1"]["ans1"]["correct"] = False
         # data2["params"]["part1"]["ans1"]["feedback"] = "This is a random number, you probably selected this choice by mistake! Try again please!"
@@ -539,7 +510,9 @@ def write_md(exercise):
     lines_to_write += asset_lines
     lines_to_write.append("server:\n  imports: |\n        import random\n        import pandas as pd\n        import problem_bank_helpers as pbh")
     lines_to_write.append("  generate: |")
-    lines_to_write += write_code(exercise)
+    code_lines, params_dict = write_code(exercise)
+    print("params_dict", params_dict)
+    lines_to_write += code_lines
     lines_to_write.append("  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass")
     # lines_to_write += [
     #     "        data2 = pbh.create_data2()\n        data.update(data2)",
@@ -564,7 +537,7 @@ def write_md(exercise):
 
     has_long_text = False
     for i, part in enumerate(exercise['parts']):
-        lines_to_write += md_part_lines(part, i=i, solution=solutions[i])
+        lines_to_write += md_part_lines(part, i=i, params=params_dict, solution=solutions[i])
         if part['info']['type'] == 'longtext':
             has_long_text = True
 

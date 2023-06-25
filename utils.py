@@ -1,4 +1,5 @@
-    
+import re 
+
 def replace_file_line(file_name, line_num, text):
     with open(file_name, 'r') as f:
         lines = f.readlines()
@@ -98,3 +99,74 @@ def get_between_strings(text: str, start_target: str, end_target: str):
     end = text.index(end_target)
     text = text[:end]
     return text
+
+
+def string_is_numeric(s: str):
+    return s.lstrip("-").replace('.','',1).isdigit()
+
+def numbers_to_latex_equations(paragraph: str, key: str):
+    numbers = []
+    # TODO: handle negative numbers
+
+    words = paragraph.split(' ')
+    for i, word in enumerate(words):
+        if len(word) == 0:
+            continue
+        possible_prefixes = ['(', '[', '{', "\\$"]
+        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '%']
+        prefix = ''
+        suffix = ''
+
+        for pre in possible_prefixes:
+            if word.startswith(pre):
+                word = word[len(pre):]
+                prefix = pre
+                break
+        for suf in possible_suffixes:
+            if word.endswith(suf):
+                word = word[:-len(suf)]
+                suffix = suf
+                break
+        word = word.replace(',', '')  # ex. 1,000,000
+
+        if string_is_numeric(word):
+            numbers.append(float(word))
+            words[i] = f'{prefix}${{{{ params.{key}.num{len(numbers)} }}}}${suffix}'
+    return ' '.join(words), numbers
+
+
+def handle_word(wordV: str, params_dict: dict):
+    possible_prefixes = ['(', '[', '{', "\\$"]
+    possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '%']
+    prefix = ''
+    suffix = ''
+    word = wordV
+    for pre in possible_prefixes:
+        if word.startswith(pre):
+            word = word[len(pre):]
+            prefix = pre
+            break
+    for suf in possible_suffixes:
+        if word.endswith(suf):
+            word = word[:-len(suf)]
+            suffix = suf
+            break
+    word = word.replace(',', '')  # ex. 1,000,000
+
+    for value, param_name in params_dict.items():
+        if word == value or (string_is_numeric(word) and type(value) is float and float(word) == value):
+            return f'{prefix}{{{{ params.{param_name.replace("_", ".")} }}}}{suffix}'
+    return wordV
+
+def apply_params_to_str(paragraph: str, params_dict: dict):
+    # TODO: handle negative numbers
+
+    words = paragraph.split(' ')
+    # re.split(' |/',paragraph)
+    for i, word in enumerate(words):
+        if len(word) == 0:
+            continue
+        arr = [handle_word(w, params_dict) for w in word.split('/')]
+        words[i] = '/'.join(arr)
+
+    return ' '.join(words)
