@@ -5,7 +5,7 @@ import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
 from pdf2image import convert_from_path
-from utils import replace_file_line
+from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag
 import tempfile
 import re
 from dotenv import load_dotenv
@@ -41,15 +41,17 @@ def read_file(path):
     with open(path, 'r') as f:
         return f.readlines()
     
-def read_inputs(chapter: str):
+def read_chapter_info(chapter: str):
     path = get_file_url(chapter, textbook_chapter_to_name[chapter])
     lines = read_file(path)
+    title = lines[0].split('{')[-1].split('}')[0]
+    print('TITLE', title)
     inputs = []
     for i in lines:
         i = i.strip()
         if i.startswith("{\input{"):
             inputs.append(i.split('/')[-1][:-6])
-    return inputs
+    return {"inputs": inputs, "title": title}
 
 def count_exercises(chapter: str, section: str):
     count = 0
@@ -74,78 +76,6 @@ def closing_bracket_index(str_list, opening_bracket_index = 0):
             if len(stack) == 0:
                 return (i, j)
     return (-1, -1)
-
-def remove_unmatched_closing(string: str):
-    stack = []
-    for i, c in enumerate(string):
-        if c == '{':
-            stack.append(i)
-        elif c == '}':
-            if len(stack) == 0:
-                return string[:i]
-            stack.pop()
-    return string
-
-def find_end_tag(string: str):
-    stack = []
-    is_started = False
-    for i, c in enumerate(string):
-        if c == '{':
-            is_started = True
-            stack.append(i)
-        elif c == '}':
-            stack.pop()
-        if is_started and len(stack) == 0:
-            return i
-    raise Exception('Does not have ending tag')
-
-
-def remove_tags(string: str):
-    while '\\' in string:
-        index = string.index('\\')
-        # print("INDEX:", string[index:])
-        end_bracket_index = find_end_tag(string[index:])
-        # print("BEFORE:", string)
-        string = string[:index] + string[index+end_bracket_index+1:]
-        # print("AFTER:", string)
-    return string
-
-def unwrap_tags(string: str):
-    while '\\' in string:
-        index = string.index('\\')
-        end_bracket_index = find_end_tag(string[index:])
-        tag_area = string[index:index+end_bracket_index+1]
-        wrapped_text = tag_area.split('{')[1].split('}')[0]
-        string = string[:index] + wrapped_text + string[index+end_bracket_index+1:]
-    return string
-
-def unwrap_unsupported_tags(stringV: str):
-    string = stringV.replace("\\\\", "\n").replace("``", '"').replace("''", '"')
-    supported_tags = ['\\textit{', '\\$']
-    unsupported_remove_entirely_tags = ['\\footfullcite', '\noindent']
-    # unsupported, \footfullcite + \noindent
-    result = ''
-    while '\\' in string:
-        index = string.index('\\')
-        matching_tags = [tag for tag in supported_tags if string[index:].startswith(tag)]
-        if len(matching_tags) > 0:
-            end_tag_index = find_end_tag(string[index:])+index if matching_tags[0].endswith("{") else index + len(matching_tags[0])-1
-            result += string[:index]
-            result += f'${string[index:end_tag_index+1]}$'
-            string = string[end_tag_index+1:]
-            continue
-        if '{' not in string[index+1:].split(' ')[0].split('}')[0]:
-            end_bracket_index = index + len(string[index+1:].split(' ')[0])
-            string = string[:index] + string[end_bracket_index+1:]
-            continue
-        end_bracket_index = find_end_tag(string[index:]) + index
-        tag_area = string[index:end_bracket_index+1]
-        wrapped_text = ''
-        if not any([tag_area.startswith(tag) for tag in unsupported_remove_entirely_tags]):
-            wrapped_text = tag_area.split('{')[1].split('}')[0]
-
-        string = string[:index] + wrapped_text + string[end_bracket_index+1:]
-    return result + string
 
 def write_file(path, lines, mode='a'):
     lines = '\n'.join(lines).split('\n')
@@ -239,7 +169,7 @@ def guess_question_type(question: str):
     numeric_phrases = ['what percent', 'calculate']
     integer_phrases = ['how many']
     multiple_choice_phrases = ['what is', 'which group', 'identify', 'each variable', 'what are']
-    long_text_phrases = ['describe', 'explain', 'why', 'comment on']
+    long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation']
     drop_down_phrases = ['determine which of']
 
     for ph in long_text_phrases:
@@ -325,12 +255,14 @@ def format_description(description: str, non_text_lines: list):
     text = extracted_question + non_text
     return text, question_numbers
 
-def get_exercises(chapter: str, section: str, questions):
+def get_exercises(chapter: str, section: str, questions, solutions_dict):
     path = get_file_url(chapter, section)
     lines = [x.strip() for x in read_file(path)]
     # print(path)
     # print(questions)
     exercises = []
+
+    ")~"
     cur_question = 0
     for i, line in enumerate(lines):
         if cur_question >= len(questions):
@@ -412,18 +344,43 @@ def get_exercises(chapter: str, section: str, questions):
                     "assets": figures + list(additional_assets),
                     "issue": questions[cur_question]['issue_title'],
                     "variables": number_variables,
+                    "solutions": solutions_dict[question]
                 })
                 cur_question += 1
 
+    print("CHAPTER", chapter)
     # print(json.dumps(exercises, indent=4))
     # print(len(exercises))
     return exercises
 
+
+def find_solutions(chapter_title: str, questions: list):
+    path = f"{TEXTBOOK_PATH}/extraTeX/eoceSolutions/eoceSolutions.tex"
+    print("SOLUTIONS", chapter_title)
+    print(questions)
+    res = {}
+    # questions.sort()
+    with open(path) as reader:
+        file = reader.read()
+        file = get_between_strings(file, f'\\eocesolch{{{chapter_title}}}', f'\\eocesolch')
+    for question_num in questions:
+        question = get_between_strings(file, f'% {question_num}\n\n', f'\n% ')
+        question = get_between_tag(question, '\\eocesol{').strip()
+        res[question_num] = question
+        print("QUESTION", question_num, '\n')
+        print(question)
+    return res
+
+
+
+
 def read_chapter(chapter: str, sections):
-    all_sections = read_inputs(chapter)
-    exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
-    summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
-    
+    chapter_info = read_chapter_info(chapter)
+    all_sections = chapter_info['inputs']
+    title = chapter_info['title']
+    # exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
+    # summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
+    print(f"SECTIONS {chapter}: {sections}")
     results = []
     # print(all_sections)
     for (section, questions) in sections.items():
@@ -431,14 +388,16 @@ def read_chapter(chapter: str, sections):
         questions.sort(key=lambda x: x['question_number'])
         section_index = all_sections.index(section)
         # file_questions = [q - summed_counts[section_index] for q in questions]
-        results += get_exercises(chapter, section, questions)
+        question_solutions_dict = find_solutions(title, [question["question_number"] for question in questions])
+        results += get_exercises(chapter, section, questions, question_solutions_dict)
 
     for exercise in results:
         write_md(exercise)
     # print(json.dumps(results, indent=4))
 # endregion read textbook
 
-def md_part_lines(part, i):
+def md_part_lines(part, i, solution=None):
+    print("PART", solution)
     q_type = part['info']['type']
     answer_section = ''
     if q_type == 'number-input':
@@ -449,13 +408,21 @@ def md_part_lines(part, i):
     # answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
     # if part['type'] == 'multiple-choice':
 
-    return [
+    result = [
         f'## Part {i+1}', '', 
         part['question'], '', 
+    ]
+
+    result += [
         '### Answer Section\n',
         answer_section, '', 
         # answer_section2, 
-        '']
+        ]
+    
+    if solution:
+        result += ['### pl-answer-panel', '', f'Part {i+1}: {solution}\n', '']
+    
+    return result + ['']
 
 
 def apply_indent(lines, indent):
@@ -538,6 +505,8 @@ def write_code(exercise: dict):
 
 # region write_md
 def write_md(exercise):
+    solutions = [x.replace("\\\\", "").strip() for x in re.split('\([a-z]\)~', exercise['solutions']) if x.strip() != '']
+    
     dir_path = WRITE_PATH + '/' + ''.join(exercise['path'].split('.')[:-1])
     path = dir_path + '/' + exercise['path'] 
     if not os.path.exists('questions'):
@@ -595,9 +564,12 @@ def write_md(exercise):
 
     has_long_text = False
     for i, part in enumerate(exercise['parts']):
-        lines_to_write += md_part_lines(part, i=i)
+        lines_to_write += md_part_lines(part, i=i, solution=solutions[i])
         if part['info']['type'] == 'longtext':
             has_long_text = True
+
+    lines_to_write += ['## Rubric', '', 'This should be hidden from students until after the deadline.', '']
+
     print("WRITING TO", path)
     write_file(path, lines_to_write)
     # print(''.join(exercise['path'].split('.')[:-1]))

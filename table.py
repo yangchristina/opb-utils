@@ -1,4 +1,7 @@
 
+from utils import unwrap_unsupported_tags
+
+
 def grab_latex_tag_section(lines, starting_index, target, phrases_signalling_end=None):
     cur = starting_index
     start = end = None
@@ -25,12 +28,15 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
     # print(lines[starting_index:])
     if latex_lines is None:
         return None
+    latex_lines = latex_lines[1:-1]
     md_lines = []
     was_empty = True
     # Need to add header | --------- | --------------------- | -------------------- | ------- | somewhere
     # TODO: turn latex table into matrix
     matrix = [[] for _ in latex_lines]
     left_border = 0
+    header_label = ''
+    # print('latex_lines', '\n'.join(latex_lines))
     for i, line in enumerate(latex_lines):
         if phrases_signalling_end is not None:
             for end_phrase in phrases_signalling_end:
@@ -48,11 +54,41 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
                 arr += [''] * (length - 1)
                 continue
             arr.append(col)
-        matrix[i] = [x.strip() or '.' for x in arr]
+        # if i == 0:
+        #     valid_count = 0
+        #     valid_value = ''
+        #     for x in arr:
+        #         if x.strip() != '':
+        #             valid_value = x
+        #             valid_count += 1
+        #     print('valid count', valid_count)
+        #     if valid_count == 1:
+        #         matrix[i] = ['.' for x in arr]
+        #         header_label = valid_value
+        #         print("Valid row label", header_label)
+        #         continue
+        matrix[i] = [unwrap_unsupported_tags(x.strip()).strip() or '.' for x in arr]
+        # print('matrix[i]', matrix[i])
         # num_cols = sum([int(col.split('\multicolumn{')[-1].split('}')[0]) + 1 if '\multicolumn{' in col else 1 for col in matrix[0]])
 
+    columns_label = ''
     # Remove empty rows + columns
-    matrix = [row for row in matrix if len(row) > 0]
+    matrix = [row for row in matrix if len(row) > 0 and any([x != '.' for x in row])]
+    # print('matrix', matrix)
+
+    # # find columns label
+    # if matrix[0][0] == '.':
+    #     valid_count = 0
+    #     valid_value = ''
+    #     for row in matrix:
+    #         if row[0] != '.':
+    #             valid_count += 1
+    #             valid_value = row[0]
+    #     if valid_count == 1:
+    #         columns_label = valid_value
+    #         for row in matrix:
+    #             row.pop(0)
+    #         matrix[0][0] = columns_label
 
     c = 0
     while c < len(matrix[0]):
