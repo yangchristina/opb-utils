@@ -135,11 +135,16 @@ def generate_random_choices(num_choices: int):
 # region read textbook
 def guess_question_type(question: str):
     question = question.strip().lower()
-    numeric_phrases = ['what percent', 'calculate']
+    numeric_phrases = ['what percent', 'calculate', 'how many']
     integer_phrases = ['how many']
     multiple_choice_phrases = ['what is', 'which group', 'identify', 'each variable', 'what are']
     long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation']
     drop_down_phrases = ['determine which of']
+
+    info_dict = {
+        "what percent": {'suffix':'"%"'}, # Tried $/%$, $%$, %, /%
+        'how many': {'sigfigs': 'integer'},
+    }
 
     for ph in long_text_phrases:
         if ph in question:
@@ -149,10 +154,10 @@ def guess_question_type(question: str):
             return {'type': 'dropdown', 'choices': generate_random_choices(4)}
     for ph in numeric_phrases:
         if ph in question:
-            return {'type': 'number-input'}
-    for ph in integer_phrases:
-        if ph in question:
-            return {'type': 'number-input', 'sigfigs': 'integer'}
+            return {'type': 'number-input', **info_dict[ph]}
+    # for ph in integer_phrases:
+    #     if ph in question:
+    #         return {'type': 'number-input', 'sigfigs': 'integer'}
     for ph in multiple_choice_phrases:
         if ph in question:
             choices = [{"value": f"'{i}'", "correct": False, "feedback": '"This is a random number, you probably selected this choice by mistake! Try again please!"'} for i in range(4)]
@@ -368,7 +373,7 @@ def md_part_lines(part, i, params=None, solution=None):
     q_type = part['info']['type']
     answer_section = ''
     if q_type == 'number-input':
-        answer_section ='Please enter in a numeric value.\n'
+        answer_section ='Please enter in a numeric value in.\n'
     elif q_type == 'multiple-choice' or q_type == 'dropdown':
         choices = part['info']['choices']
         answer_section = '\n'.join([f'- {{{{ params.part{i+1}.ans{j+1}.value }}}}' for j in range(len(choices))])
@@ -420,7 +425,9 @@ def get_pl_customizations(info: dict = {}, index: int = 0):
         if 'sigfigs' in info and info['sigfigs'] == 'integer':
             ans = ['weight: 1', 'allow-blank: true'] #'label: $d= $', 
         else:
-            ans = ['rtol: 0.05', 'weight: 1', 'allow-blank: true', 'label: $d= $', 'suffix: m']
+            ans = ['rtol: 0.05', 'weight: 1', 'allow-blank: true', 'label: $d= $']
+        if 'suffix' in info:
+            ans.append(f'suffix: {info["suffix"]}')
         # ans = ['weight: 1', 'allow-blank: true'] # for integer
     elif type == 'dropdown':
         ans = ['weight: 1', 'blank: true']
@@ -467,6 +474,10 @@ def write_code(exercise: dict):
                     lines += [f"data2['params']['part{part_num+1}']['ans{choice_num+1}']['{key}'] = {val}"]
                 lines.append('')
             lines.append('')
+        if part['info']['type'] == 'number-input':
+            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
+            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = 0  # TODO: insert correct answer here")
+
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
     return apply_indent(lines, indent), used_by
