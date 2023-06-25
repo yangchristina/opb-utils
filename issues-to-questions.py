@@ -287,7 +287,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
             if int(line.split(' ')[-1]) != question:
                 continue
             else:
-                solutions = [x.replace("\\\\", "").strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
+                solutions = [x.replace("\\\\", "").strip().lstrip('`').lstrip('\\`').rstrip("'").rstrip('"').rstrip('".').strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
                 print()
                 print(f'Question {question}, num: {int(line.split(" ")[-1])}, line: {i}')
                 #region title
