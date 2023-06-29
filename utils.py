@@ -173,10 +173,8 @@ def apply_params_to_str(paragraph: str, params_dict: dict):
 
 
 def extract_first_number(text: str):
-    print("text", text)
     split = text.split(' ')
     for word in split:
-        print(word)
         if string_is_numeric(word.replace(',', '').strip()):
             return word
     raise Exception(f'No number found in {text}')

@@ -1,3 +1,4 @@
 .env
 questions/
 __pycache__/**
+completed.txt

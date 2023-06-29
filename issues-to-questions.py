@@ -243,11 +243,6 @@ def handle_parts(lines, starting_index, title: str, solutions):
                 solutions_to_insert.append(item['extract_solution'](solutions[solution_index]))
             solutions.pop(solution_index)
             solutions[solution_index:solution_index] = solutions_to_insert
-            print()
-            print('solutions')
-            print(solutions)
-            print(info)
-            print()
             # TODO: handle solutions
         else: 
         # num_key = f'part{len(parts)+1}'
@@ -386,7 +381,6 @@ def find_solutions(chapter_title: str, questions: list):
         question = get_between_strings(file, f'% {question_num}\n\n', f'\n% ')
         question = get_between_tag(question, '\\eocesol{').strip()
         res[question_num] = question
-        print("QUESTION", question_num, '\n')
         # print(question)
     return res
 
@@ -399,7 +393,6 @@ def read_chapter(chapter: str, sections):
     title = chapter_info['title']
     # exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
     # summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
-    print(f"SECTIONS {chapter}: {sections}")
     results = []
     # print(all_sections)
     for (section, questions) in sections.items():
@@ -410,7 +403,15 @@ def read_chapter(chapter: str, sections):
         question_solutions_dict = find_solutions(title, [question["question_number"] for question in questions])
         results += get_exercises(chapter, section, questions, question_solutions_dict)
 
+    with open('completed.txt', 'r') as reader:
+        lines = reader.readlines()
+        lines = [line.strip() for line in lines]
+        results = [exercise for exercise in results if exercise['path'].strip() not in lines]
+        # ex. exercise['path'] = '1_2_data_basics_q1_9.md'
+        for line in lines:
+            line.strip()
     for exercise in results:
+        # if (exercise['path'] == ''):
         write_md(exercise)
     # print(json.dumps(results, indent=4))
 # endregion read textbook
@@ -529,7 +530,6 @@ def write_code(exercise: dict):
             lines.append(f"data2['params']['{key}']['num{i+1}'] = {key}_num{i+1}")
     lines.append('')
 
-    print("VARIABLES", used_by)
     # endregion handle variables
 
 
@@ -662,6 +662,7 @@ if __name__ == "__main__":
     sections_by_chapter = {}
     for item in issues:
         print(item.title)
+        print(item.number)
         chapter = item.title.split(' ')[0].split('.')[0]
         split = item.title.split(' ')
         section_name = '_'.join(split[1:-1]).lower()
