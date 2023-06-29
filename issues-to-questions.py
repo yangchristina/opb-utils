@@ -276,6 +276,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
     # print(path)
     # print(questions)
     exercises = []
+    table_num = 0
 
     cur_question = 0
     for i, line in enumerate(lines):
@@ -287,6 +288,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
             if int(line.split(' ')[-1]) != question:
                 continue
             else:
+                variables = {}
                 solutions = [x.replace("\\\\", "").strip().lstrip('`').lstrip('\\`').rstrip("'").rstrip('"').rstrip('".').strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
                 print()
                 print(f'Question {question}, num: {int(line.split(" ")[-1])}, line: {i}')
@@ -334,10 +336,11 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 # print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
                 non_text_description_lines = []
                 # print(f'i: {i}, Question: {question}')
-                table = latex_table_to_md(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
+                table = latex_table_to_md(f'table{table_num}', lines, description_end_index+1, variables=variables, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
                 figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '%'])
                 if table is not None:
                     non_text_description_lines.append(table)
+                    table_num += 1
 
                 description, question_numbers = format_description(description, non_text_description_lines)
                 #endregion
@@ -358,7 +361,8 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                     "path": f"{filename}.md",
                     "assets": figures + list(additional_assets),
                     "issue": questions[cur_question]['issue_title'],
-                    "variables": number_variables,
+                    "num_variables": number_variables,
+                    "variables": variables,
                     "solutions": solutions,
                 })
                 cur_question += 1
@@ -486,13 +490,29 @@ def write_code(exercise: dict):
     indent = '        '
     lines = ["data2 = pbh.create_data2()", "",]
 
+    num_variables = exercise['num_variables']
     variables = exercise['variables']
     # Randomize Variables
     # v = random.randint(2,7)
     # t = random.randint(5,10)
+
+    # region Handle variables
     used_by = {}
+    for (var_name, value) in variables.items():
+        lines.append(f"{var_name} = {value}")
+        used_by[value] = var_name
+    lines.append('')
+    for (var_name, value) in variables.items():
+        values = var_name.split('_')
+        cur_var_line = f"data2['params']"
+        for val in values:
+            cur_var_line += f"['{val}']"
+        cur_var_line += f" = {var_name}"
+        lines.append(cur_var_line)
+    lines.append('')
+
     lines.append('# Randomize Variables')
-    for (key, values) in variables.items():
+    for (key, values) in num_variables.items():
         for (i, num) in enumerate(values):
             # check if num has been used previously
             cur_var_name = f"{key}_num{i+1}"
@@ -501,12 +521,17 @@ def write_code(exercise: dict):
                 used_by[num] = cur_var_name
             line = f"{cur_var_name} = {num}" if not used else f"{key}_num{i+1} = {used}"
             lines.append(line)
+        
     lines.append('')
     lines.append('# store the variables in the dictionary "params"')
-    for (key, values) in variables.items():
+    for (key, values) in num_variables.items():
         for (i, num) in enumerate(values):
             lines.append(f"data2['params']['{key}']['num{i+1}'] = {key}_num{i+1}")
     lines.append('')
+
+    print("VARIABLES", used_by)
+    # endregion handle variables
+
 
     for part_num, part in enumerate(exercise['parts']):
         if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':

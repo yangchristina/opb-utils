@@ -1,5 +1,5 @@
 
-from utils import unwrap_unsupported_tags
+from utils import unwrap_unsupported_tags, string_is_numeric
 
 
 def grab_latex_tag_section(lines, starting_index, target, phrases_signalling_end=None):
@@ -20,7 +20,7 @@ def grab_latex_tag_section(lines, starting_index, target, phrases_signalling_end
         cur += 1
     return None
 
-def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
+def latex_table_to_md(key: str, lines, starting_index, variables, phrases_signalling_end=None)->str:
     """Converts a latex table to markdown format."""
     latex_lines = grab_latex_tag_section(lines, starting_index, 'tabular', phrases_signalling_end=phrases_signalling_end)
     # print('latex_lines')
@@ -36,6 +36,7 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
     matrix = [[] for _ in latex_lines]
     left_border = 0
     header_label = ''
+    null_value = ''
     # print('latex_lines', '\n'.join(latex_lines))
     for i, line in enumerate(latex_lines):
         if phrases_signalling_end is not None:
@@ -67,13 +68,13 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
         #         header_label = valid_value
         #         print("Valid row label", header_label)
         #         continue
-        matrix[i] = [unwrap_unsupported_tags(x.strip()).strip() or '.' for x in arr]
+        matrix[i] = [unwrap_unsupported_tags(x.strip()).strip() or null_value for x in arr]
         # print('matrix[i]', matrix[i])
         # num_cols = sum([int(col.split('\multicolumn{')[-1].split('}')[0]) + 1 if '\multicolumn{' in col else 1 for col in matrix[0]])
 
     columns_label = ''
     # Remove empty rows + columns
-    matrix = [row for row in matrix if len(row) > 0 and any([x != '.' for x in row])]
+    matrix = [row for row in matrix if len(row) > 0 and any([x != null_value for x in row])]
     # print('matrix', matrix)
 
     # # find columns label
@@ -104,6 +105,15 @@ def latex_table_to_md(lines, starting_index, phrases_signalling_end=None)->str:
     #         left_border += 1
     #     else:
     #         break
+
+    # variables
+    # Loop through matrix
+    # If a cell is a variable, add it to the variables dict
+    for i, row in enumerate(matrix):
+        for j, cell in enumerate(row):
+            if cell != null_value and string_is_numeric(cell.replace(',', '')):
+                variables["{0}_r{1}_c{2}".format(key, i, j)] = float(cell)
+                matrix[i][j] = f'{{{{ params.{key}.r{i}.c{j} }}}}'
 
     md_lines = ['| ' + ' | '.join(row) + ' |' for row in matrix]
     md_lines.insert(1, '| ' + ' | '.join(['------------'] * num_cols) + ' |')
