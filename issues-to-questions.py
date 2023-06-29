@@ -381,7 +381,7 @@ def find_solutions(chapter_title: str, questions: list):
         question = get_between_strings(file, f'% {question_num}\n\n', f'\n% ')
         question = get_between_tag(question, '\\eocesol{').strip()
         res[question_num] = question
-        # print(question)
+
     return res
 
 
