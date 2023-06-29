@@ -148,7 +148,7 @@ def guess_question_type(question: str):
 
     multi_part_direct_match = {
         'who are the subjects in this study, and how many are included?': [
-            {'type': 'longtext', 'question': 'Who are the subjects in this study',
+            {'type': 'longtext', 'question': 'Who are the subjects in this study?',
                 'extract_solution': lambda x: ' '.join(x.strip().split(' ')[1:]),
             },
             {'type': 'number-input', 'sigfigs': 'integer', 'question': 'How many of the above subjects are included?',
@@ -647,6 +647,8 @@ def write_md(exercise):
 
 if __name__ == "__main__":
     print('hi')
+    with open('issues.txt', 'w') as f:
+        f.write('')
     # latex_to_markdown('')
     # Public Web Github
     g = Github(login_or_token=GITHUB_ACCESS_TOKEN)
@@ -663,6 +665,10 @@ if __name__ == "__main__":
     for item in issues:
         print(item.title)
         print(item.number)
+        
+        with open('issues.txt', 'a') as f:
+            f.write(f'{item.title}={item.number}\n')
+        
         chapter = item.title.split(' ')[0].split('.')[0]
         split = item.title.split(' ')
         section_name = '_'.join(split[1:-1]).lower()
