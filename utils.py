@@ -151,12 +151,6 @@ def handle_word(wordV: str, params_dict: dict):
             suffix = suf + suffix
     word = word.replace(',', '')  # ex. 1,000,000
 
-    if (wordV == '-40$,'):
-        print("\n\nHERE")
-        print(wordV)
-        print(word)
-        print(suffix)
-
     for value, param_name in params_dict.items():
         if word == value or (string_is_numeric(word) and type(value) is float and float(word) == value):
             if string_is_numeric(word) and not ('$' in prefix or '$' in suffix):
