@@ -260,6 +260,7 @@ def handle_parts(lines, starting_index, title: str, solutions):
 
 def format_description(description: str, non_text_lines: list):
     non_text = '\n\n' + '\n'.join(non_text_lines) if len(non_text_lines) > 0 else ''
+
     extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(description), 'description')
     text = extracted_question + non_text
     return text, question_numbers

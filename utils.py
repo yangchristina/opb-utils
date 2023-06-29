@@ -63,7 +63,8 @@ def unwrap_unsupported_tags(stringV: str):
         index = string.index('\\')
         matching_tags = [tag for tag in supported_tags if string[index:].startswith(tag)]
         if len(matching_tags) > 0:
-            end_tag_index = find_end_tag(string[index:])+index if matching_tags[0].endswith("{") else index + len(matching_tags[0])-1
+            end_tag_index = find_end_tag(string[index:])+index if matching_tags[0].endswith("{") else index + (string[index:].index(' ') - 1 if ' ' in string[index:] else len(matching_tags[0])-1)
+            # index + len(matching_tags[0])-1
             result += string[:index]
             result += f'${string[index:end_tag_index+1]}$'
             string = string[end_tag_index+1:]
