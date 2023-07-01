@@ -15,6 +15,8 @@ Options:
 
 import shutil
 from docopt import docopt
+import sys
+sys.path.insert(0, '/Users/christinayang/Documents/GitHub/OPB/problem_bank_scripts/src')
 import problem_bank_scripts as pbs
 import pathlib
 import os
@@ -33,6 +35,7 @@ def main():
     try:
         print(f"Processing question: {question}")
         pbs.process_question_pl(question, output_path=output_dir)
+        # pbs.process_question_md(question, output_path=output_dir, instructor=True)
         # src_dir = '/'.join(question.split('/')[:-1])
         # dst_dir = f'{"/".join(output_dir.split("/")[:-1])}/clientFilesQuestion'
         # for basename in os.listdir(src_dir):

@@ -587,7 +587,8 @@ def write_md(exercise):
     lines_to_write = []
     asset_lines = ["assets:"]
     asset_to_filename = {}
-    for a in exercise['assets']:
+    # Do all the moving here
+    for i, a in enumerate(exercise['assets']):
         if a.endswith('.html'):
             asset_lines.append(f"- {a}")
             continue
@@ -622,9 +623,9 @@ def write_md(exercise):
     
     # TODO: ADD ASSETS HERE, how should assets be formatted?, since parts assets + main assets
     for a in exercise['assets']:
-        if not a.endswith('.jpg') or not a.endswith('.jpeg') or not a.endswith('.png'):
+        filename = asset_to_filename[a] if a in asset_to_filename else a
+        if not filename.endswith('.jpg') and not filename.endswith('.jpeg') and not filename.endswith('.png'):
             continue
-        filename = asset_to_filename[a]
         img = f'<img src="{filename}" width=400>'
         lines_to_write.append(img)
     if len(exercise['assets']) > 0:
