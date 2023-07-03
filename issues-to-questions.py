@@ -146,7 +146,7 @@ def generate_random_choices(num_choices: int):
 def guess_question_type(question: str):
     question = question.strip().lower()
     # numeric_phrases = ['what percent', 'calculate', 'how many', 'what is the probability']
-    multiple_choice_phrases = ['what is', 'which group', 'each variable', 'what are']
+    multiple_choice_phrases = ['what is', 'which group', 'each variable', 'what are', 'are being']
     long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 'advantages and disadvantages']
     drop_down_phrases = ['determine which of']
 
