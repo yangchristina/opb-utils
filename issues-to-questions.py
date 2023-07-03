@@ -228,6 +228,7 @@ def create_part(question, info, title, parts, additional_assets, number_variable
     # TODO: PROBLEM HERE!!!
     if info['type'] == 'unknown':
         info = guess_question_type(title)
+    # Because unknown, guessing title, which includes a latex table currently. Need to remove table from title
     num_key = f'part{len(parts)+1}'
 
     extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
