@@ -132,9 +132,16 @@ def generate_random_choices(num_choices: int):
 def guess_question_type(question: str):
     question = question.strip().lower()
     # numeric_phrases = ['what percent', 'calculate', 'how many', 'what is the probability']
-    multiple_choice_phrases = ['what is', 'which group', 'each variable', 'what are', 'are being']
-    long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 'advantages and disadvantages']
+    multiple_choice_phrases = [
+        'what is', 'which group', 'each variable', 'what are', 'are being', 
+        'do you think', 'are the', 'must they be', 'are believing', 'how does'
+    ]
+    long_text_phrases = [
+        'describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 
+        'advantages and disadvantages', 'support your answer', 'write the', 'interpret this'
+    ]
     drop_down_phrases = ['determine which of']
+    file_upload_phrases = ['upload', 'draw a', 'construct a']
 
     numeric_info_dict = {
         "what percent": {'suffix':'"%"'}, # Tried $/%$, $%$, %, /%
@@ -189,6 +196,7 @@ def guess_question_type(question: str):
         "what's the expected": {},
     }
 
+    # ADD CUSTOM SPLITS HERE, MUST BE LOWER CASE
     multi_part_direct_match = {
         'who are the subjects in this study, and how many are included?': [
             {'type': 'longtext', 'question': 'Who are the subjects in this study?',
@@ -212,8 +220,11 @@ def guess_question_type(question: str):
     if question in multi_part_direct_match:
         return multi_part_direct_match[question]
 
-    if question.count('if') > 2:
-        return {'type': 'dropdown', 'choices': generate_random_choices(4)}
+    # if question.count('if') > 2:
+    #     return {'type': 'dropdown', 'choices': generate_random_choices(4)}
+    for ph in file_upload_phrases:
+        if ph in question:
+            return {'type': 'file-upload'}
     for ph in long_text_phrases:
         if ph in question:
             return {'type': 'longtext'}

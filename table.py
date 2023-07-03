@@ -98,7 +98,7 @@ def latex_table_to_md(key: str, lines, starting_index, variables, phrases_signal
     #         matrix[0][0] = columns_label
 
     c = 0
-    print('matrix', matrix)
+    # print('matrix', matrix)
     while c < len(matrix[0]):
         if all([row[c].strip() == '' for row in matrix]):
             for row in matrix:

@@ -23,6 +23,8 @@ def md_part_lines(part, i, params=None, solution=None):
     elif q_type == 'multiple-choice' or q_type == 'dropdown':
         choices = part['info']['choices']
         answer_section = '\n'.join([f'- {{{{ params.part{i+1}.ans{j+1}.value }}}}' for j in range(len(choices))])
+    elif q_type == 'file-upload':
+        answer_section ='File upload box will be shown here.\n'
     # answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
     # if part['type'] == 'multiple-choice':
 
@@ -70,6 +72,8 @@ def get_pl_customizations(info: dict = {}, index: int = 0):
         ans = ['label: $F_r = $', 'variables: "m, v, r"', 'weight: 1', 'allow-blank: false']
     elif type == 'longtext':
         ans = ['placeholder: "Type your answer here..."', f'file-name: "answer{index+1}.html"', 'quill-theme: "snow"', 'directory: clientFilesQuestion', 'source-file-name: sample.html']
+    elif type == 'file-upload':
+        ans = ['file-names: "file.png, file.jpg, file.pdf, filename space.png"']
     return ['  pl-customizations:'] + apply_indent(lines=ans, indent=pl_indent)
 
 

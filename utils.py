@@ -205,9 +205,12 @@ def extract_first_number(text: str):
 def split_question_by_if(text: str):
     questions = ['']
     sentences = nltk.sent_tokenize(text)
+    has_question_mark = False
     if_count = 0
     for sentence in sentences:
-        if 'if' in ' '.join(sentence.split(' ')[0:3]):
+        if sentence.strip().endswith('?') or 'list' in sentence.lower() or 'state' in sentence.lower():
+            has_question_mark = True
+        if has_question_mark and 'if' in ' '.join(sentence.split(' ')[0:3]):
             if if_count > 0:
                 questions.append('')
             if_count += 1
