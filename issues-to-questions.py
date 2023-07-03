@@ -226,6 +226,7 @@ def guess_question_type(question: str):
 def create_part(question, info, title, parts, additional_assets, number_variables):
     print('question', question)
     # TODO: PROBLEM HERE!!!
+    # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
         info = guess_question_type(title)
     # Because unknown, guessing title, which includes a latex table currently. Need to remove table from title
