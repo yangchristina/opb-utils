@@ -36,11 +36,8 @@ def find_end_tag(string: str):
 def remove_tags(string: str):
     while '\\' in string:
         index = string.index('\\')
-        # print("INDEX:", string[index:])
         end_bracket_index = find_end_tag(string[index:])
-        # print("BEFORE:", string)
         string = string[:index] + string[index+end_bracket_index+1:]
-        # print("AFTER:", string)
     return string
 
 def unwrap_tags(string: str):
@@ -94,10 +91,16 @@ def get_between_tag(string: str, tag: str):
     return string[index+len(tag)+also_add:end_bracket_index]
 
 
-def get_between_strings(text: str, start_target: str, end_target: str):
+def get_between_strings(text: str, start_target: str, end_target: str | list[str]):
     start = text.index(start_target)
     text = text[start + len(start_target):]
-    end = text.index(end_target)
+
+    if isinstance(end_target, str):
+        end_target = [end_target]
+    end_target_index = 0
+    while end_target_index < len(end_target) and end_target[end_target_index] not in text:
+        end_target_index += 1
+    end = text.index(end_target[end_target_index])
     text = text[:end]
     return text
 

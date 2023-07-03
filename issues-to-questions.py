@@ -1,3 +1,5 @@
+import bisect
+import json
 import random
 from github import Github
 import shutil
@@ -24,6 +26,7 @@ WRITE_PATH = './questions'
 textbook_chapter_to_name = {
     '1': 'ch_intro_to_data',
     '2': 'ch_summarizing_data',
+    '4': 'ch_distributions',
     # TODO: add more chapters
 }
 # endregion
@@ -51,6 +54,7 @@ def read_chapter_info(chapter: str):
         i = i.strip()
         if i.startswith("{\input{"):
             inputs.append(i.split('/')[-1][:-6])
+    inputs.append('review_exercises')
     return {"inputs": inputs, "title": title}
 
 def count_exercises(chapter: str, section: str):
@@ -136,14 +140,18 @@ def generate_random_choices(num_choices: int):
 # region read textbook
 def guess_question_type(question: str):
     question = question.strip().lower()
-    numeric_phrases = ['what percent', 'calculate', 'how many']
+    # numeric_phrases = ['what percent', 'calculate', 'how many', 'what is the probability']
     multiple_choice_phrases = ['what is', 'which group', 'each variable', 'what are']
     long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify']
     drop_down_phrases = ['determine which of']
 
-    info_dict = {
+    numeric_info_dict = {
         "what percent": {'suffix':'"%"'}, # Tried $/%$, $%$, %, /%
+        'calculate': {},
         'how many': {'sigfigs': 'integer'},
+        'what is the probability': {},
+        'what price': {},
+        'compute': {}
     }
 
     multi_part_direct_match = {
@@ -158,7 +166,7 @@ def guess_question_type(question: str):
     if question in multi_part_direct_match:
         return multi_part_direct_match[question]
 
-    if question.count('if') > 1:
+    if question.count('if') > 2:
         return {'type': 'dropdown', 'choices': generate_random_choices(4)}
     for ph in long_text_phrases:
         if ph in question:
@@ -166,9 +174,9 @@ def guess_question_type(question: str):
     for ph in drop_down_phrases:
         if ph in question:
             return {'type': 'dropdown', 'choices': generate_random_choices(4)}
-    for ph in numeric_phrases:
+    for ph in numeric_info_dict.keys():
         if ph in question:
-            return {'type': 'number-input', **info_dict[ph]}
+            return {'type': 'number-input', **numeric_info_dict[ph]}
     for ph in multiple_choice_phrases:
         if ph in question:
             choices = [{"value": f"'{i}'", "correct": False, "feedback": '"This is a random number, you probably selected this choice by mistake! Try again please!"'} for i in range(4)]
@@ -279,6 +287,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
         if cur_question >= len(questions):
             break
         question = questions[cur_question]['question_number']
+
         line = line.strip()
         if line.startswith("% ") and lines[i + 2].strip().startswith('\eoce{\qt{'):
             if int(line.split(' ')[-1]) != question:
@@ -348,6 +357,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 if len(parts) == 1:
                     description = '.'.join([sentence for sentence in description.split('.') if sentence.strip() != ''][:-1]) + '.'
 
+
                 filename = str_to_filename(questions[cur_question]['issue_title'], '_')
                 exercises.append({
                     "title": title,
@@ -377,9 +387,11 @@ def find_solutions(chapter_title: str, questions: list):
     # questions.sort()
     with open(path) as reader:
         file = reader.read()
-        file = get_between_strings(file, f'\\eocesolch{{{chapter_title}}}', f'\\eocesolch')
-    for question_num in questions:
-        question = get_between_strings(file, f'% {question_num}\n\n', f'\n% ')
+        file = get_between_strings(file, f'\\eocesolch{{{chapter_title}}}', [f'\\eocesolch', '%_______________'])
+    for question in questions:
+        question_num = question['question_number']
+        # print(chapter_title, "QUESTION NUM", question_num)
+        question = get_between_strings(file, f'% {question_num}\n\n', [f'\n% ', '%_______________'])
         question = get_between_tag(question, '\\eocesol{').strip()
         res[question_num] = question
 
@@ -388,20 +400,35 @@ def find_solutions(chapter_title: str, questions: list):
 
 
 
-def read_chapter(chapter: str, sections):
+def read_chapter(chapter: str, questions: list):
+    questions.sort(key=lambda x: x['question_number'])
     chapter_info = read_chapter_info(chapter)
     all_sections = chapter_info['inputs']
+    exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
+    summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
     title = chapter_info['title']
-    # exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
-    # summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
+    # print("ALL_SECTIONS")
+    # print(all_sections)
+    # print("EXERCISE COUNTS", exercise_counts)
+    # return
+    sections = {}
+    for question in questions:
+        section_index = bisect.bisect_left(summed_counts, question['question_number'])
+        section = all_sections[section_index-1]
+        if section not in sections:
+            sections[section] = []
+        sections[section].append(question)
+
+    # print("SECTIONS", sections)
     results = []
     # print(all_sections)
-    for (section, questions) in sections.items():
+    # for (section, questions) in sections.items():
         # question_numbers = [x['questions'] for x in questions]
-        questions.sort(key=lambda x: x['question_number'])
-        section_index = all_sections.index(section)
-        # file_questions = [q - summed_counts[section_index] for q in questions]
-        question_solutions_dict = find_solutions(title, [question["question_number"] for question in questions])
+    # section_index = all_sections.index(section)
+    # file_questions = [q - summed_counts[section_index] for q in questions]
+    question_solutions_dict = find_solutions(title, questions)
+    for (section, questions) in sections.items():
+        # print("SECTION", section)
         results += get_exercises(chapter, section, questions, question_solutions_dict)
 
     with open('completed.txt', 'r') as reader:
@@ -663,25 +690,45 @@ if __name__ == "__main__":
     issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
     print(issues.totalCount)
 
+    questions_by_chapter = {}
     sections_by_chapter = {}
     for item in issues:
-        print(item.title)
-        print(item.number)
+        print('title', item.title)
+        print('issue number', item.number)
         
         with open('issues.txt', 'a') as f:
             f.write(f'{item.title}={item.number}\n')
+        question_info = item.title.split("Q")[-1]
+        chapter, question = question_info.split('.')
+        chapter = chapter.strip()
+        question = int(question.strip())
+
+        print('chapter', chapter, 'question', question)
+
+        if chapter not in questions_by_chapter:
+            questions_by_chapter[chapter] = []
+        questions_by_chapter[chapter].append({"question_number": question, 'issue_title': item.title})
         
-        chapter = item.title.split(' ')[0].split('.')[0]
-        split = item.title.split(' ')
-        section_name = '_'.join(split[1:-1]).lower()
-        section_name = str_to_filename(section_name)
-        question = int(split[-1][1:].split('.')[-1])
-        if chapter not in sections_by_chapter:
-            sections_by_chapter[chapter] = {}
-        if section_name not in sections_by_chapter[chapter]:
-            sections_by_chapter[chapter][section_name] = []
-        sections_by_chapter[chapter][section_name].append({"question_number": question, 'issue_title': item.title})
+        # if item.title.startswith('Chapter Exercises'):
+        # index = item.title.find('q')
+        # else:
+        #     chapter = item.title.split(' ')[0].split('.')[0]
+        #     split = item.title.split(' ')
+        #     section_name = '_'.join(split[1:-1]).lower()
+        #     section_name = str_to_filename(section_name)
+        #     question = int(split[-1][1:].split('.')[-1])
+
+
+        # if chapter not in sections_by_chapter:
+        #     sections_by_chapter[chapter] = {}
+        # if section_name not in sections_by_chapter[chapter]:
+        #     sections_by_chapter[chapter][section_name] = []
+        # sections_by_chapter[chapter][section_name].append({"question_number": question, 'issue_title': item.title})
     # print(sections_by_chapter)
-    for (chapter, sections) in sections_by_chapter.items():
-        read_chapter(chapter, sections)
+    print('\nquestions_by_chapter\n')
+    print(questions_by_chapter)
+    for (chapter, questions) in questions_by_chapter.items():
+        read_chapter(chapter, questions)
+    # for (chapter, sections) in sections_by_chapter.items():
+    #     read_chapter(chapter, sections)
     # NOT IN CORRECT ORDER from .items
