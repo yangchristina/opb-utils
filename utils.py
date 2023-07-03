@@ -1,5 +1,5 @@
 import re 
-
+import nltk.data
 def replace_file_line(file_name, line_num, text):
     with open(file_name, 'r') as f:
         lines = f.readlines()
@@ -182,3 +182,33 @@ def extract_first_number(text: str):
         if string_is_numeric(word.replace(',', '').strip()):
             return word
     raise Exception(f'No number found in {text}')
+
+
+def split_question_by_if(text: str):
+    questions = ['']
+    sentences = nltk.sent_tokenize(text)
+    if_count = 0
+    for sentence in sentences:
+        if 'if' in ' '.join(sentence.split(' ')[0:3]):
+            if if_count > 0:
+                questions.append('')
+            if_count += 1
+        questions[-1] += sentence + ' '
+    return [q.strip() for q in questions] if len(questions) >= 2 else False
+
+def split_question_by_question_mark(text: str):
+    questions = ['']
+    sentences = nltk.sent_tokenize(text)
+    question_mark_count = 0
+    if 'if you watched' in text:
+        print('ABFODJGDI')
+        print(text)
+    for sentence in sentences:
+        if sentence.strip().endswith('?'):
+            print('QUETSIONMARK')
+            print(sentence)
+            if question_mark_count > 0:
+                questions.append('')
+            question_mark_count += 1
+        questions[-1] += sentence + ' '
+    return [q.strip()[0].upper() + q.strip()[1:] for q in questions] if len(questions) >= 2 else False

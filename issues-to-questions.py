@@ -7,7 +7,7 @@ import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
 from pdf2image import convert_from_path
-from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str, extract_first_number
+from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str, extract_first_number, split_question_by_if, split_question_by_question_mark
 import tempfile
 import re
 from dotenv import load_dotenv
@@ -142,7 +142,7 @@ def guess_question_type(question: str):
     question = question.strip().lower()
     # numeric_phrases = ['what percent', 'calculate', 'how many', 'what is the probability']
     multiple_choice_phrases = ['what is', 'which group', 'each variable', 'what are']
-    long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify']
+    long_text_phrases = ['describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 'advantages and disadvantages']
     drop_down_phrases = ['determine which of']
 
     numeric_info_dict = {
@@ -162,7 +162,18 @@ def guess_question_type(question: str):
             {'type': 'number-input', 'sigfigs': 'integer', 'question': 'How many of the above subjects are included?',
                 'extract_solution': extract_first_number,
             },
-        ]}
+        ]
+    }
+    
+    split_questions = split_question_by_if(question)
+    if split_questions:
+        question_type = guess_question_type(split_questions[0])
+        return [{'question': q, 'extract_solution': lambda x: x, **question_type} for q in split_questions]
+    if not split_questions:
+        split_questions = split_question_by_question_mark(question)
+    if split_questions:
+        return [{'question': q, 'extract_solution': lambda x: x, **guess_question_type(q)} for q in split_questions]
+    
     if question in multi_part_direct_match:
         return multi_part_direct_match[question]
 
@@ -247,6 +258,7 @@ def handle_parts(lines, starting_index, title: str, solutions):
             solutions_to_insert = []
             solution_index = len(parts)
             for item in info:
+                print('item', item)
                 create_part(item['question'], item)
                 solutions_to_insert.append(item['extract_solution'](solutions[solution_index]))
             solutions.pop(solution_index)
@@ -729,6 +741,8 @@ if __name__ == "__main__":
     print(questions_by_chapter)
     for (chapter, questions) in questions_by_chapter.items():
         read_chapter(chapter, questions)
+
+    # should_split_question("blue. fish? are cool, today; today is a good day.")
     # for (chapter, sections) in sections_by_chapter.items():
     #     read_chapter(chapter, sections)
     # NOT IN CORRECT ORDER from .items
