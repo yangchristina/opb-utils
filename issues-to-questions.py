@@ -3,37 +3,28 @@ import json
 import random
 from github import Github
 import shutil
+from solutions import find_solutions
 import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
-from pdf2image import convert_from_path
-from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str, extract_first_number, split_question_by_if, split_question_by_question_mark, re_rstrip
+from utils import remove_unmatched_closing, apply_indent, remove_tags, write_file, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, extract_first_number, split_question_by_if, split_question_by_question_mark, re_rstrip
 import tempfile
+from constants import textbook_chapter_to_name
 import re
 from dotenv import load_dotenv
+from write_md import write_md
 load_dotenv()
 
 
 # region settings
 TEXTBOOK_PATH = os.environ.get("TEXTBOOK_PATH")
-WRITE_PATH = os.environ.get("WRITE_PATH")
+# WRITE_PATH = os.environ.get("WRITE_PATH")
 GITHUB_ACCESS_TOKEN = os.environ.get("GITHUB_ACCESS_TOKEN")
 GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME")
 
-# TESTING PURPOSES, comment out when ready to actually write
 WRITE_PATH = './questions'
 
-textbook_chapter_to_name = {
-    '1': 'ch_intro_to_data',
-    '2': 'ch_summarizing_data',
-    '3': 'ch_probability',
-    '4': 'ch_distributions',
-    '5': 'ch_foundations_for_inf',
-    '6': 'ch_inference_for_props',
-    '7': 'ch_inference_for_means',
-    '8': 'ch_regr_simple_linear',
-    '9': 'ch_regr_mult_and_log',
-}
+
 # endregion
 
 # region general helpers
@@ -86,12 +77,7 @@ def closing_bracket_index(str_list, opening_bracket_index = 0):
                 return (i, j)
     return (-1, -1)
 
-def write_file(path, lines, mode='a'):
-    lines = '\n'.join(lines).split('\n')
-    while lines[-1].strip() == '':
-        lines.pop()
-    with open(path, mode) as f:
-        f.writelines([line.rstrip()+ '\n' for line in lines])
+
 # endregion
 
 
@@ -156,6 +142,7 @@ def guess_question_type(question: str):
         'how many': {'sigfigs': 'integer'},
         'what price': {},
         'compute': {},
+        'what would be the': {},
         'what is the variance': {},
         'what is the standard deviation': {},
         'what is the probability': {},
@@ -176,7 +163,30 @@ def guess_question_type(question: str):
         'what is the coefficient': {},
         'what is the odds ratio': {},
         'what is the relative risk': {},
+        'what is the expected': {},
         'what is the hazard ratio': {},
+        "what's the variance": {},
+        "what's the standard deviation": {},
+        "what's the probability": {},
+        "what's the mean": {},
+        "what's the median": {},
+        "what's the mode": {},
+        "what's the range": {},
+        "what's the interquartile range": {},
+        "what's the standard error": {},
+        "what's the margin of error": {},
+        "what's the confidence interval": {},
+        "what's the p-value": {},
+        "what's the z-score": {},
+        "what's the t-score": {},
+        "what's the correlation": {},
+        "what's the slope": {},
+        "what's the intercept": {},
+        "what's the coefficient": {},
+        "what's the odds ratio": {},
+        "what's the relative risk": {},
+        "what's the hazard ratio": {},
+        "what's the expected": {},
     }
 
     multi_part_direct_match = {
@@ -224,10 +234,10 @@ def guess_question_type(question: str):
     return {'type': 'unknown'}
 
 def create_part(question, info, title, parts, additional_assets, number_variables):
-    print('question', question)
     # TODO: PROBLEM HERE!!!
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
+        print(f'Unknown question type: {question}')
         info = guess_question_type(title)
     # Because unknown, guessing title, which includes a latex table currently. Need to remove table from title
     num_key = f'part{len(parts)+1}'
@@ -238,7 +248,6 @@ def create_part(question, info, title, parts, additional_assets, number_variable
         'question': extracted_question,
         'info': info,
     })
-    print('info', info)
     if info['type'] == 'longtext':
         additional_assets.add('sample.html')
     number_variables[num_key] = question_numbers
@@ -259,10 +268,6 @@ def handle_parts(lines, starting_index, title: str, solutions):
             break
         index += 1
 
-    print(f"\nLINES: start:{start} end:{end} \n")
-    print(lines[start+1:end])
-    print()
-
     parts = []
     items = []
     if start == -1:
@@ -282,7 +287,6 @@ def handle_parts(lines, starting_index, title: str, solutions):
     else:
         items = ' '.join(lines[start+1:end]).split('\\item')
 
-    print('items', items)
     # def create_part(question, info):
     #     if info['type'] == 'unknown':
     #         info = guess_question_type(title)
@@ -308,7 +312,6 @@ def handle_parts(lines, starting_index, title: str, solutions):
             solutions_to_insert = []
             solution_index = len(parts)
             for item in info:
-                print('item', item)
                 # create_part(item['question'], item)
                 create_part(item['question'], info=item, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables)
                 solutions_to_insert.append(item['extract_solution'](solutions[solution_index]))
@@ -360,8 +363,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
             else:
                 variables = {}
                 solutions = [x.replace("\\\\", "").strip().lstrip('`').lstrip('\\`').rstrip("'").rstrip('"').rstrip('".').strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
-                print()
-                print(f'Question {question}, num: {int(line.split(" ")[-1])}, line: {i}')
+
                 #region title
                 title_end_index = i + 1
                 closing_line = -1
@@ -444,27 +446,6 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
     return exercises
 
 
-def find_solutions(chapter_title: str, questions: list):
-    path = f"{TEXTBOOK_PATH}/extraTeX/eoceSolutions/eoceSolutions.tex"
-    # print("SOLUTIONS", chapter_title)
-    # print(questions)
-    res = {}
-    # questions.sort()
-    with open(path) as reader:
-        file = reader.read()
-        file = get_between_strings(file, f'\\eocesolch{{{chapter_title}}}', [f'\\eocesolch', '%_______________'])
-    for question in questions:
-        question_num = question['question_number']
-        # print(chapter_title, "QUESTION NUM", question_num)
-        question = get_between_strings(file, f'% {question_num}\n\n', [f'\n% ', '%_______________'])
-        question = get_between_tag(question, '\\eocesol{').strip()
-        res[question_num] = question
-
-    return res
-
-
-
-
 def read_chapter(chapter: str, questions: list):
     questions.sort(key=lambda x: x['question_number'])
     chapter_info = read_chapter_info(chapter)
@@ -509,235 +490,9 @@ def read_chapter(chapter: str, questions: list):
     # print(json.dumps(results, indent=4))
 # endregion read textbook
 
-def md_part_lines(part, i, params=None, solution=None):
-    q_type = part['info']['type']
-    answer_section = ''
-    if q_type == 'number-input':
-        answer_section ='Please enter in a numeric value in.\n'
-    elif q_type == 'multiple-choice' or q_type == 'dropdown':
-        choices = part['info']['choices']
-        answer_section = '\n'.join([f'- {{{{ params.part{i+1}.ans{j+1}.value }}}}' for j in range(len(choices))])
-    # answer_section2 = '### pl-answer-panel\n\nEverything here will get inserted directly into an pl-answer-panel element at the end of the `question.html`.\nPlease remove this section if it is not application for this question.'
-    # if part['type'] == 'multiple-choice':
-
-    result = [
-        f'## Part {i+1}', '', 
-        part['question'], '', 
-    ]
-
-    result += [
-        '### Answer Section\n',
-        answer_section, '', 
-        # answer_section2, 
-        ]
-    
-    if solution:
-        if params:
-            formated_soln = apply_params_to_str(solution, params)
-            result += ['### pl-answer-panel', '', f'Part {i+1}: {formated_soln}', '']
-        else:
-            result += ['### pl-answer-panel', '', f'Part {i+1}: {solution}', '']
-    
-    return result + ['']
 
 
-def apply_indent(lines, indent):
-    return [indent + x for x in lines]
 
-def format_type_info(info: dict):
-    indent = '  '
-    info_type = info['type']
-    list = [f'type: {info["type"]}']
-    if info_type == 'longtext':
-        list.append('gradingMethod: Manual')
-    if info_type == 'number-input' and 'sigfigs' in info and info['sigfigs'] == 'integer':
-        list.append('label: $d=$')
-    return apply_indent(list, indent)
-
-def get_pl_customizations(info: dict = {}, index: int = 0):
-    type = info['type']
-    pl_indent = '    '
-    ans = []
-    if type == 'multiple-choice':
-        ans = ['weight: 1']
-    elif type == 'number-input':
-        # TODO: need to know if integer or not
-        if 'sigfigs' in info and info['sigfigs'] == 'integer':
-            ans = ['weight: 1', 'allow-blank: true'] #'label: $d= $', 
-        else:
-            ans = ['rtol: 0.05', 'weight: 1', 'allow-blank: true', 'label: $d= $']
-        if 'suffix' in info:
-            ans.append(f'suffix: {info["suffix"]}')
-        # ans = ['weight: 1', 'allow-blank: true'] # for integer
-    elif type == 'dropdown':
-        ans = ['weight: 1', 'blank: true']
-    elif type == 'checkbox':
-        ans = ['weight: 1', 'partial-credit: true', 'partial-credit-method: EDC']
-    elif type == 'symbolic-input':
-        ans = ['label: $F_r = $', 'variables: "m, v, r"', 'weight: 1', 'allow-blank: false']
-    elif type == 'longtext':
-        ans = ['placeholder: "Type your answer here..."', f'file-name: "answer{index+1}.html"', 'quill-theme: "snow"', 'directory: clientFilesQuestion', 'source-file-name: sample.html']
-    return ['  pl-customizations:'] + apply_indent(lines=ans, indent=pl_indent)
-
-
-def write_code(exercise: dict):
-    indent = '        '
-    lines = ["data2 = pbh.create_data2()", "",]
-
-    num_variables = exercise['num_variables']
-    variables = exercise['variables']
-    # Randomize Variables
-    # v = random.randint(2,7)
-    # t = random.randint(5,10)
-
-    # region Handle variables
-    used_by = {}
-    for (var_name, value) in variables.items():
-        lines.append(f"{var_name} = {value}")
-        used_by[value] = var_name
-    lines.append('')
-    for (var_name, value) in variables.items():
-        values = var_name.split('_')
-        cur_var_line = f"data2['params']"
-        for val in values:
-            cur_var_line += f"['{val}']"
-        cur_var_line += f" = {var_name}"
-        lines.append(cur_var_line)
-    lines.append('')
-
-    lines.append('# Randomize Variables')
-    for (key, values) in num_variables.items():
-        for (i, num) in enumerate(values):
-            # check if num has been used previously
-            cur_var_name = f"{key}_num{i+1}"
-            used = used_by[num] if (num in used_by) else ''
-            if not used:
-                used_by[num] = cur_var_name
-            line = f"{cur_var_name} = {num}" if not used else f"{key}_num{i+1} = {used}"
-            lines.append(line)
-        
-    lines.append('')
-    lines.append('# store the variables in the dictionary "params"')
-    for (key, values) in num_variables.items():
-        for (i, num) in enumerate(values):
-            lines.append(f"data2['params']['{key}']['num{i+1}'] = {key}_num{i+1}")
-    lines.append('')
-
-    # endregion handle variables
-
-
-    for part_num, part in enumerate(exercise['parts']):
-        if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
-            for choice_num, choice in enumerate(part['info']['choices']):
-                for (key, val) in choice.items():
-                    lines += [f"data2['params']['part{part_num+1}']['ans{choice_num+1}']['{key}'] = {val}"]
-                lines.append('')
-            lines.append('')
-        if part['info']['type'] == 'number-input':
-            numeric_answer = None
-            if len(exercise['solutions'][part_num].strip().split(' ')) == 1 and string_is_numeric(exercise['solutions'][part_num].replace(',', '').strip()):
-                numeric_answer = float(exercise['solutions'][part_num].replace(',', '').strip())
-                exercise['solutions'][part_num] = f'{{{{ correct_answers.part{part_num+1}_ans }}}}'
-            if len(list(filter(None, exercise['solutions'][part_num].split('\n')))) == 1 and '\\rightarrow' in exercise['solutions'][part_num]:
-                numeric_answer = 1
-                answer_section: str = exercise['solutions'][part_num].split('\\rightarrow')[-1].strip()
-                while not answer_section[-1].isdigit():
-                    answer_section = answer_section[:-1]
-                while not answer_section[0].isdigit() and not answer_section[0] == '-':
-                    answer_section = answer_section[1:]
-                numeric_answer = (float(answer_section.strip()))
-                split = exercise['solutions'][part_num].split('\\rightarrow')
-                split[-1] = split[-1].replace(answer_section, f'{{{{ correct_answers.part{part_num+1}_ans }}}}')
-                exercise['solutions'][part_num] = '\\rightarrow'.join(split)
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
-            end_note = '' if numeric_answer is not None else '# TODO: insert correct answer here'
-            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = {numeric_answer or 0}  {end_note}")
-            lines.append('')
-
-
-    lines += ["# Update the data object with a new dict", "data.update(data2)"]
-    return apply_indent(lines, indent), used_by
-        # data2["params"]["part1"]["ans1"]["value"] = pbh.roundp(42)
-        # data2["params"]["part1"]["ans1"]["correct"] = False
-        # data2["params"]["part1"]["ans1"]["feedback"] = "This is a random number, you probably selected this choice by mistake! Try again please!"
-
-# region write_md
-def write_md(exercise):
-    solutions = exercise['solutions']
-    
-    dir_path = WRITE_PATH + '/' + ''.join(exercise['path'].split('.')[:-1])
-    path = dir_path + '/' + exercise['path'] 
-    if not os.path.exists('questions'):
-        os.mkdir('questions')
-    if not os.path.exists(dir_path):
-        os.mkdir(dir_path)
-    shutil.copyfile('q11_multi-part.md', path)
-    replace_file_line(path, 1, f"title: {exercise['title']}")
-
-    # TODO: write expression
-    lines_to_write = []
-    asset_lines = ["assets:"]
-    asset_to_filename = {}
-    # Do all the moving here
-    for i, a in enumerate(exercise['assets']):
-        if a.endswith('.html'):
-            asset_lines.append(f"- {a}")
-            continue
-        figure_dir_path = f"{TEXTBOOK_PATH}/{textbook_chapter_to_name[chapter]}/figures/{a}"
-        figure_name = os.listdir(figure_dir_path)[0]
-        figure_no_extension_name, ext = figure_name.split('.')
-        if ext == 'pdf':
-            images = None
-            with tempfile.TemporaryDirectory() as tmp_path:
-                images = convert_from_path(f'{figure_dir_path}/{figure_name}', output_folder=tmp_path, use_cropbox=True)
-                figure_name = f'{figure_no_extension_name}.jpg'
-                if len(images) > 0:
-                    images[0].save(f'{dir_path}/{figure_name}', 'JPEG')
-        asset_to_filename[a] = figure_name
-        asset_lines.append(f"- {figure_name}")
-    lines_to_write += asset_lines
-    lines_to_write.append("server:\n  imports: |\n        import random\n        import pandas as pd\n        import problem_bank_helpers as pbh")
-    lines_to_write.append("  generate: |")
-    code_lines, params_dict = write_code(exercise)
-    lines_to_write += code_lines
-    lines_to_write.append("  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass")
-    # lines_to_write += [
-    #     "        data2 = pbh.create_data2()\n        data.update(data2)",
-    #     "  prepare: |\n        pass\n  parse: |\n        pass\n  grade: |\n        pass"
-    # ]
-    question_part_lines = []
-    for (i, e) in enumerate(exercise['parts']):
-        question_lines = [f'part{i+1}:'] + format_type_info(e['info']) + get_pl_customizations(e['info'], i)
-        question_part_lines += question_lines
-    lines_to_write += question_part_lines
-    lines_to_write += ['---', '# {{ params.vars.title }}', '', exercise['description'], '']
-    
-    # TODO: ADD ASSETS HERE, how should assets be formatted?, since parts assets + main assets
-    for a in exercise['assets']:
-        filename = asset_to_filename[a] if a in asset_to_filename else a
-        if not filename.endswith('.jpg') and not filename.endswith('.jpeg') and not filename.endswith('.png'):
-            continue
-        img = f'<img src="{filename}" width=400>'
-        lines_to_write.append(img)
-    if len(exercise['assets']) > 0:
-        lines_to_write.append('')
-
-    has_long_text = False
-    for i, part in enumerate(exercise['parts']):
-        lines_to_write += md_part_lines(part, i=i, params=params_dict, solution=solutions[i])
-        if part['info']['type'] == 'longtext':
-            has_long_text = True
-
-    lines_to_write += ['## Rubric', '', 'This should be hidden from students until after the deadline.', '']
-
-    print("WRITING TO", path)
-    write_file(path, lines_to_write)
-    # print(''.join(exercise['path'].split('.')[:-1]))
-    if has_long_text:
-        shutil.copyfile('sample.html', f'{dir_path}/sample.html')
-    # write_file('question-paths.txt', [path])
-# endregion
 
 if __name__ == "__main__":
     print('hi')
@@ -761,12 +516,10 @@ if __name__ == "__main__":
     for item in issues:
         if 'Q' not in item.title or '.' not in item.title:
             continue
-        print('title', item.title)
-        print('issue number', item.number)
+        # print('title', item.title)
+        # print('issue number', item.number)
         if item.pull_request:
             continue
-        else:
-            print('not a pull request')
         
         with open('issues.txt', 'a') as f:
             f.write(f'{item.title}={item.number}\n')
@@ -774,7 +527,7 @@ if __name__ == "__main__":
         chapter, question = question_info.split('.')
         chapter = chapter.strip()
         question = int(re_rstrip(question.split(' ')[0].strip(), '\D'))
-        print('chapter', chapter, 'question', question)
+        # print('chapter', chapter, 'question', question)
 
 
         if chapter not in questions_by_chapter:
@@ -797,8 +550,8 @@ if __name__ == "__main__":
         #     sections_by_chapter[chapter][section_name] = []
         # sections_by_chapter[chapter][section_name].append({"question_number": question, 'issue_title': item.title})
     # print(sections_by_chapter)
-    print('\nquestions_by_chapter\n')
-    print(questions_by_chapter)
+    # print('\nquestions_by_chapter\n')
+    # print(questions_by_chapter)
     for (chapter, questions) in questions_by_chapter.items():
         read_chapter(chapter, questions)
 

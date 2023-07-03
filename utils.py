@@ -1,5 +1,18 @@
 import re 
 import nltk.data
+
+def apply_indent(lines, indent):
+    return [indent + x for x in lines]
+
+
+def write_file(path, lines, mode='a'):
+    lines = '\n'.join(lines).split('\n')
+    while lines[-1].strip() == '':
+        lines.pop()
+    with open(path, mode) as f:
+        f.writelines([line.rstrip()+ '\n' for line in lines])
+
+
 def replace_file_line(file_name, line_num, text):
     with open(file_name, 'r') as f:
         lines = f.readlines()

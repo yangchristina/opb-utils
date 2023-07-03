@@ -4,7 +4,7 @@ topic: Template
 author: Firas Moosvi
 source: original
 template_version: 1.4
-attribution: standard
+attribution: openintro-stats
 partialCredit: true
 singleVariant: false
 showCorrectAnswer: false
