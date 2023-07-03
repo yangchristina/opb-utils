@@ -7,7 +7,7 @@ import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
 from pdf2image import convert_from_path
-from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str, extract_first_number, split_question_by_if, split_question_by_question_mark
+from utils import replace_file_line, remove_unmatched_closing, find_end_tag, remove_tags, unwrap_tags, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, apply_params_to_str, extract_first_number, split_question_by_if, split_question_by_question_mark, re_rstrip
 import tempfile
 import re
 from dotenv import load_dotenv
@@ -26,8 +26,13 @@ WRITE_PATH = './questions'
 textbook_chapter_to_name = {
     '1': 'ch_intro_to_data',
     '2': 'ch_summarizing_data',
+    '3': 'ch_probability',
     '4': 'ch_distributions',
-    # TODO: add more chapters
+    '5': 'ch_foundations_for_inf',
+    '6': 'ch_inference_for_props',
+    '7': 'ch_inference_for_means',
+    '8': 'ch_regr_simple_linear',
+    '9': 'ch_regr_mult_and_log',
 }
 # endregion
 
@@ -149,9 +154,29 @@ def guess_question_type(question: str):
         "what percent": {'suffix':'"%"'}, # Tried $/%$, $%$, %, /%
         'calculate': {},
         'how many': {'sigfigs': 'integer'},
-        'what is the probability': {},
         'what price': {},
-        'compute': {}
+        'compute': {},
+        'what is the variance': {},
+        'what is the standard deviation': {},
+        'what is the probability': {},
+        'what is the mean': {},
+        'what is the median': {},
+        'what is the mode': {},
+        'what is the range': {},
+        'what is the interquartile range': {},
+        'what is the standard error': {},
+        'what is the margin of error': {},
+        'what is the confidence interval': {},
+        'what is the p-value': {},
+        'what is the z-score': {},
+        'what is the t-score': {},
+        'what is the correlation': {},
+        'what is the slope': {},
+        'what is the intercept': {},
+        'what is the coefficient': {},
+        'what is the odds ratio': {},
+        'what is the relative risk': {},
+        'what is the hazard ratio': {},
     }
 
     multi_part_direct_match = {
@@ -198,10 +223,27 @@ def guess_question_type(question: str):
             return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
     return {'type': 'unknown'}
 
+def create_part(question, info, title, parts, additional_assets, number_variables):
+    print('question', question)
+    # TODO: PROBLEM HERE!!!
+    if info['type'] == 'unknown':
+        info = guess_question_type(title)
+    num_key = f'part{len(parts)+1}'
+
+    extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
+
+    parts.append({
+        'question': extracted_question,
+        'info': info,
+    })
+    print('info', info)
+    if info['type'] == 'longtext':
+        additional_assets.add('sample.html')
+    number_variables[num_key] = question_numbers
 
 def handle_parts(lines, starting_index, title: str, solutions):
     additional_assets = set()
-    start = -1
+    start = end = -1
     index = starting_index
     number_variables = {}
     while index < len(lines):
@@ -214,6 +256,10 @@ def handle_parts(lines, starting_index, title: str, solutions):
             end = index
             break
         index += 1
+
+    print(f"\nLINES: start:{start} end:{end} \n")
+    print(lines[start+1:end])
+    print()
 
     parts = []
     items = []
@@ -234,20 +280,22 @@ def handle_parts(lines, starting_index, title: str, solutions):
     else:
         items = ' '.join(lines[start+1:end]).split('\\item')
 
-    def create_part(question, info):
-        if info['type'] == 'unknown':
-            info = guess_question_type(title)
-        num_key = f'part{len(parts)+1}'
+    print('items', items)
+    # def create_part(question, info):
+    #     if info['type'] == 'unknown':
+    #         info = guess_question_type(title)
+    #     num_key = f'part{len(parts)+1}'
 
-        extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
+    #     extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
 
-        parts.append({
-            'question': extracted_question,
-            'info': info,
-        })
-        if info['type'] == 'longtext':
-            additional_assets.add('sample.html')
-        number_variables[num_key] = question_numbers
+    #     parts.append({
+    #         'question': extracted_question,
+    #         'info': info,
+    #     })
+    #     print('info', info)
+    #     if info['type'] == 'longtext':
+    #         additional_assets.add('sample.html')
+    #     number_variables[num_key] = question_numbers
 
     for x in items:
         if x.strip() == '':
@@ -259,7 +307,8 @@ def handle_parts(lines, starting_index, title: str, solutions):
             solution_index = len(parts)
             for item in info:
                 print('item', item)
-                create_part(item['question'], item)
+                # create_part(item['question'], item)
+                create_part(item['question'], info=item, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables)
                 solutions_to_insert.append(item['extract_solution'](solutions[solution_index]))
             solutions.pop(solution_index)
             solutions[solution_index:solution_index] = solutions_to_insert
@@ -267,7 +316,9 @@ def handle_parts(lines, starting_index, title: str, solutions):
         else: 
         # num_key = f'part{len(parts)+1}'
         # extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
-            create_part(question, info)
+            # create_part(question, info)
+            create_part(question, info=info, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables)
+
         # parts.append({
         #     'question': extracted_question,
         #     'info': info,
@@ -330,7 +381,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 target = '\\begin'
                 description_end_index = closing_line
                 started = False
-                while True:
+                while description_end_index < len(lines):
                     cur_line = lines[description_end_index]
                     if description_end_index == closing_line:
                         cur_line = cur_line[closing_line_index+1:]
@@ -699,23 +750,30 @@ if __name__ == "__main__":
 
     repo = g.get_repo("open-resources/instructor_stats_bank")
 
-    issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+    # issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+    issues = repo.get_issues(state="open")
     print(issues.totalCount)
 
     questions_by_chapter = {}
     sections_by_chapter = {}
     for item in issues:
+        if 'Q' not in item.title or '.' not in item.title:
+            continue
         print('title', item.title)
         print('issue number', item.number)
+        if item.pull_request:
+            continue
+        else:
+            print('not a pull request')
         
         with open('issues.txt', 'a') as f:
             f.write(f'{item.title}={item.number}\n')
         question_info = item.title.split("Q")[-1]
         chapter, question = question_info.split('.')
         chapter = chapter.strip()
-        question = int(question.strip())
-
+        question = int(re_rstrip(question.split(' ')[0].strip(), '\D'))
         print('chapter', chapter, 'question', question)
+
 
         if chapter not in questions_by_chapter:
             questions_by_chapter[chapter] = []

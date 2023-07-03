@@ -75,6 +75,12 @@ def latex_table_to_md(key: str, lines, starting_index, variables, phrases_signal
     columns_label = ''
     # Remove empty rows + columns
     matrix = [row for row in matrix if len(row) > 0 and any([x != null_value for x in row])]
+
+    max_row_len = max([len(row) for row in matrix])
+    for i, row in enumerate(matrix):
+        if len(row) < max_row_len:
+            matrix[i] = [null_value] * (max_row_len - len(row)) + row
+
     # print('matrix', matrix)
 
     # # find columns label
@@ -92,6 +98,7 @@ def latex_table_to_md(key: str, lines, starting_index, variables, phrases_signal
     #         matrix[0][0] = columns_label
 
     c = 0
+    print('matrix', matrix)
     while c < len(matrix[0]):
         if all([row[c].strip() == '' for row in matrix]):
             for row in matrix:

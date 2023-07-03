@@ -52,7 +52,7 @@ def unwrap_tags(string: str):
 # ISSUE: might add an extra \n
 def unwrap_unsupported_tags(stringV: str):
     string = stringV.replace("\\\\", "\n").replace("``", '"').replace("''", '"')
-    supported_tags = ['\\textit{', '\\$']
+    supported_tags = ['\\textit{', '\\$', '\\mu', '\\sigma', '\\frac{']
     unsupported_remove_entirely_tags = ['\\footfullcite', '\\noindent']
     # unsupported, \footfullcite + \noindent, \emph, '\\raisebox'
     result = ''
@@ -63,7 +63,12 @@ def unwrap_unsupported_tags(stringV: str):
             end_tag_index = find_end_tag(string[index:])+index if matching_tags[0].endswith("{") else index + (string[index:].index(' ') - 1 if ' ' in string[index:] else len(matching_tags[0])-1)
             # index + len(matching_tags[0])-1
             result += string[:index]
-            result += f'${string[index:end_tag_index+1]}$'
+
+            cur_line = string[index:end_tag_index+1]
+            if '$' in cur_line or (index > 0 and string[index-1] == '$'):
+                result += f'{cur_line}'
+            else:
+                result += f'${cur_line}$'
             string = string[end_tag_index+1:]
             continue
         if '{' not in string[index+1:].split(' ')[0].split('}')[0]:
@@ -200,15 +205,21 @@ def split_question_by_question_mark(text: str):
     questions = ['']
     sentences = nltk.sent_tokenize(text)
     question_mark_count = 0
-    if 'if you watched' in text:
-        print('ABFODJGDI')
-        print(text)
     for sentence in sentences:
         if sentence.strip().endswith('?'):
-            print('QUETSIONMARK')
-            print(sentence)
             if question_mark_count > 0:
                 questions.append('')
             question_mark_count += 1
         questions[-1] += sentence + ' '
     return [q.strip()[0].upper() + q.strip()[1:] for q in questions] if len(questions) >= 2 else False
+
+def re_lstrip(string, char="\s"):
+    return re.sub(f"^{char}+", "", string)
+
+def re_rstrip(string, char="\s"):
+    return re.sub(f"{char}+$", "", string)
+
+def re_strip(string, char="\s"):
+    result = re_lstrip(string, char)
+    result = re_rstrip(result, char)
+    return result
