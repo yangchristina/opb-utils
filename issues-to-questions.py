@@ -128,20 +128,49 @@ def generate_random_choices(num_choices: int):
     return choices
 
 
+def generate_yes_no_choices():
+    # Do I have access to solutions here?
+    choices = [
+        {
+            "value": "Yes", 
+            "correct": False, 
+            "feedback": '"Try again please!"'
+        },{
+            "value": "No", 
+            "correct": False, 
+            "feedback": '"Try again please!"'
+        }
+    ]
+    # TODO: add actual choices
+    correct = random.randint(0, 1)
+    choices[correct]["correct"] = True
+    choices[correct]["feedback"] = '"Correct!"'
+    return choices
+
+
 # region read textbook
 def guess_question_type(question: str):
     question = question.strip().lower()
+
+    if question == '':
+        return {'type': 'multiple-choice', 'choices': generate_yes_no_choices()}
+
+    yes_no_starting_words = ['is ', 'are ', 'does ', 'do ', 'did ', 'was ', 'were ', 'has ', 'have ', 'can ', 'could ', 'would ', 'must ']
+    multiple_choice_starting_words = ['which ']
+
     # numeric_phrases = ['what percent', 'calculate', 'how many', 'what is the probability']
     multiple_choice_phrases = [
         'what is', 'which group', 'each variable', 'what are', 'are being', 
-        'do you think', 'are the', 'must they be', 'are believing', 'how does'
+        'do you think', 'are the', 'must they be', 'are believing', 'how does',
+        'which error', 'which of the following', 'which of these', 'which of the', 'which of these',
+        'what population', 'what parameter', 'determine if', 'what features', 'what does', 'what do '
     ]
     long_text_phrases = [
         'describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 
-        'advantages and disadvantages', 'support your answer', 'write the', 'interpret this'
+        'advantages and disadvantages', 'support your answer', 'write the', 'interpret ', 'what characteristics'
     ]
     drop_down_phrases = ['determine which of']
-    file_upload_phrases = ['upload', 'draw a', 'construct a']
+    file_upload_phrases = ['upload', 'draw ', 'construct ']
 
     numeric_info_dict = {
         "what percent": {'suffix':'"%"'}, # Tried $/%$, $%$, %, /%
@@ -149,6 +178,8 @@ def guess_question_type(question: str):
         'how many': {'sigfigs': 'integer'},
         'what price': {},
         'compute': {},
+        'estimate': {},
+        'what proportion': {},
         'what would be the': {},
         'what is the variance': {},
         'what is the standard deviation': {},
@@ -222,6 +253,12 @@ def guess_question_type(question: str):
 
     # if question.count('if') > 2:
     #     return {'type': 'dropdown', 'choices': generate_random_choices(4)}
+    for ph in yes_no_starting_words:
+        if question.strip().startswith(ph):
+            return {'type': 'multiple-choice', 'choices': generate_yes_no_choices()}
+    for ph in multiple_choice_starting_words:
+        if question.strip().startswith(ph):
+            return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
     for ph in file_upload_phrases:
         if ph in question:
             return {'type': 'file-upload'}
@@ -236,15 +273,10 @@ def guess_question_type(question: str):
             return {'type': 'number-input', **numeric_info_dict[ph]}
     for ph in multiple_choice_phrases:
         if ph in question:
-            choices = [{"value": f"'{i}'", "correct": False, "feedback": '"This is a random number, you probably selected this choice by mistake! Try again please!"'} for i in range(4)]
-            # TODO: add actual choices
-            correct = random.randint(0, 3)
-            choices[correct]["correct"] = True
-            choices[correct]["feedback"] = '"Correct!"'
             return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
     return {'type': 'unknown'}
 
-def create_part(question, info, title, parts, additional_assets, number_variables):
+def create_part(question, info, title, parts, additional_assets, number_variables, solutions):
     # TODO: PROBLEM HERE!!!
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
@@ -268,11 +300,13 @@ def handle_parts(lines, starting_index, title: str, solutions):
     start = end = -1
     index = starting_index
     number_variables = {}
+
     while index < len(lines):
         line = lines[index]
         if '\\begin{parts}' in line:
             start = index
-        if ('\\end{parts}' in line or '}{}' in line or '%' in line):
+        if line.startswith('}{}') or line.startswith('% '):
+            # '\\end{parts}' in line
             if start == -1:
                 break
             end = index
@@ -298,6 +332,7 @@ def handle_parts(lines, starting_index, title: str, solutions):
     else:
         items = ' '.join(lines[start+1:end]).split('\\item')
 
+    items = [item.strip().replace('\\end{parts}', '') for item in items if item.strip() != '']
     # def create_part(question, info):
     #     if info['type'] == 'unknown':
     #         info = guess_question_type(title)
@@ -313,10 +348,22 @@ def handle_parts(lines, starting_index, title: str, solutions):
     #     if info['type'] == 'longtext':
     #         additional_assets.add('sample.html')
     #     number_variables[num_key] = question_numbers
+    j = 0
+    while j < len(items):
+        if 'begin{subparts}' in items[j]:
+            old_value = items.pop(j)
+            # items[j] valid even after pop because \\begin{subparts} must be matched with an end
+            items[j] = old_value.replace('\\begin{subparts}', '').replace('\\end{subparts}', '') + ' ' + items[j]
+        else:
+            items[j].replace('\\end{subparts}', '')
+            j += 1
+    # print('items', json.dumps(items, indent=2))
+
+    if len(items) <= 1 and len(solutions) > 1:
+        items = [items[0]] if len(items) == 1 else []
+        items += ['' for _ in range(len(solutions)-len(items))]
 
     for x in items:
-        if x.strip() == '':
-            continue
         question = x.replace('\\\\','\n').strip()
         info = guess_question_type(question)
         if type(info) is list:
@@ -324,7 +371,7 @@ def handle_parts(lines, starting_index, title: str, solutions):
             solution_index = len(parts)
             for item in info:
                 # create_part(item['question'], item)
-                create_part(item['question'], info=item, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables)
+                create_part(item['question'], info=item, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables, solutions=solutions)
                 solutions_to_insert.append(item['extract_solution'](solutions[solution_index]))
             solutions.pop(solution_index)
             solutions[solution_index:solution_index] = solutions_to_insert
@@ -333,7 +380,8 @@ def handle_parts(lines, starting_index, title: str, solutions):
         # num_key = f'part{len(parts)+1}'
         # extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
             # create_part(question, info)
-            create_part(question, info=info, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables)
+            create_part(question, info=info, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables, solutions=solutions)
+
 
         # parts.append({
         #     'question': extracted_question,
@@ -373,7 +421,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 continue
             else:
                 variables = {}
-                solutions = [x.replace("\\\\", "").strip().lstrip('`').lstrip('\\`').rstrip("'").rstrip('"').rstrip('".').strip() for x in re.split('\([a-z]\)~', solutions_dict[question]) if x.strip() != '']
+                solutions = [x.replace("\\\\", "").strip().lstrip('`').lstrip('\\`').rstrip("'").rstrip('"').rstrip('".').strip() for x in re.split('\([a-z]+\)~|\([a-z]+\)\\\\|\([a-z]+-i+\)~', solutions_dict[question]) if x.strip() != '']
 
                 #region title
                 title_end_index = i + 1
@@ -419,8 +467,13 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 # print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
                 non_text_description_lines = []
                 # print(f'i: {i}, Question: {question}')
-                table = latex_table_to_md(f'table{table_num}', lines, description_end_index+1, variables=variables, phrases_signalling_end=['\\begin{parts}', '}{}', '%'])
-                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '%'])
+                table = latex_table_to_md(f'table{table_num}', lines, description_end_index+1, variables=variables, phrases_signalling_end=['\\begin{parts}', '}{}'])
+                figures = []
+                try:
+                    figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}'])
+                except Exception as e:
+                    print("ERROR FINDING FIGURES", chapter, section, question)
+                    print(e)
                 if table is not None:
                     non_text_description_lines.append(table)
                     table_num += 1
@@ -498,6 +551,12 @@ def read_chapter(chapter: str, questions: list):
     for exercise in results:
         # if (exercise['path'] == ''):
         write_md(exercise)
+        # try:
+        #     write_md(exercise)
+        # except Exception as e:
+        #     print(f'Error writing {exercise["path"]}')
+        #     print(e)
+        #     continue
     # print(json.dumps(results, indent=4))
 # endregion read textbook
 

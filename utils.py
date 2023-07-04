@@ -65,7 +65,7 @@ def unwrap_tags(string: str):
 # ISSUE: might add an extra \n
 def unwrap_unsupported_tags(stringV: str):
     string = stringV.replace("\\\\", "\n").replace("``", '"').replace("''", '"')
-    supported_tags = ['\\textit{', '\\$', '\\mu', '\\sigma', '\\frac{']
+    supported_tags = ['\\textit{', '\\$', '\\mu', '\\sigma', '\\frac{', '\\ne']
     unsupported_remove_entirely_tags = ['\\footfullcite', '\\noindent']
     # unsupported, \footfullcite + \noindent, \emph, '\\raisebox'
     result = ''

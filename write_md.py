@@ -4,6 +4,7 @@ from utils import replace_file_line, apply_indent, write_file, apply_params_to_s
 import tempfile
 from constants import textbook_chapter_to_name
 from pdf2image import convert_from_path
+import json
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -134,7 +135,13 @@ def write_code(exercise: dict):
 
     # endregion handle variables
 
-
+    if len(exercise['parts']) != len(exercise['solutions']):
+        print(f"MISMATCH: parts {len(exercise['parts'])}, solns {len(exercise['solutions'])}")
+        print("parts:")
+        
+        print(json.dumps([x["question"] for x in exercise['parts']], indent=2))
+        print("solns:")
+        print(json.dumps(exercise['solutions'], indent=2))
     for part_num, part in enumerate(exercise['parts']):
         if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':
             lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
@@ -235,6 +242,15 @@ def write_md(exercise):
         lines_to_write.append('')
 
     has_long_text = False
+    if len(exercise['parts']) != len(solutions):
+        print(f"ERROR: PARTS AND SOLUTIONS LENGTHS DON'T MATCH, parts {len(exercise['parts'])}, solutions {len(solutions)}")
+        print("PARTS", len(exercise['parts']), json.dumps([x['question'] for x in exercise['parts']], indent=2))
+        print("SOLUTIONS", len(solutions), json.dumps(solutions, indent=2))
+        # print(json.dumps(exercise, indent=2))
+
+        print("\nPATH", path)
+        print()
+        raise Exception("PARTS AND SOLUTIONS LENGTHS DON'T MATCH")
     for i, part in enumerate(exercise['parts']):
         lines_to_write += md_part_lines(part, i=i, params=params_dict, solution=solutions[i])
         if part['info']['type'] == 'longtext':

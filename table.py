@@ -119,7 +119,7 @@ def latex_table_to_md(key: str, lines, starting_index, variables, phrases_signal
     for i, row in enumerate(matrix):
         for j, cell in enumerate(row):
             if cell != null_value and string_is_numeric(cell.replace(',', '')):
-                variables["{0}_r{1}_c{2}".format(key, i, j)] = float(cell)
+                variables["{0}_r{1}_c{2}".format(key, i, j)] = float(cell.replace(',', ''))
                 matrix[i][j] = f'{{{{ params.{key}.r{i}.c{j} }}}}'
 
     md_lines = ['| ' + ' | '.join(row) + ' |' for row in matrix]
@@ -141,6 +141,7 @@ def find_all_figures(latex_lines, starting_line_index, phrases_signalling_end=No
     """Finds all figures in a latex document/string."""
     figures = []
     # print("in figures, starting index", starting_line_index)
+    figure_found = False
     for line in latex_lines[starting_line_index:]:
         # if (line.strip() != ''):
         #     print(line)
@@ -149,10 +150,13 @@ def find_all_figures(latex_lines, starting_line_index, phrases_signalling_end=No
                 if end_phrase in line:
                     return figures
         if '\\Figures' in line:
-            bracket_index = line.index(']')
+            figure_found = True
+        if figure_found and ']' in line:
+            bracket_index = line.index(']') #  might be on a different line
             starting_index = line[bracket_index:].index('}') + 2 + bracket_index
             ending_index = line[starting_index:].index('}') + starting_index
             figures.append(line[starting_index:ending_index])
+            figure_found = False
     return figures
     # \Figures[An ear is show, with an "M" shown near the front lower lobe of the ear and an "S" shown near the middle upper portion of the ear.]{0.75}{eoce/migraine_and_acupuncture_intro}{earacupuncture}
 
