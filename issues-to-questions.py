@@ -132,17 +132,17 @@ def generate_yes_no_choices():
     # Do I have access to solutions here?
     choices = [
         {
-            "value": "Yes", 
+            "value": '"Yes"', 
             "correct": False, 
             "feedback": '"Try again please!"'
         },{
-            "value": "No", 
+            "value": '"No"', 
             "correct": False, 
             "feedback": '"Try again please!"'
         }
     ]
     # TODO: add actual choices
-    correct = random.randint(0, 1)
+    correct = random.randint(0, len(choices)-1)
     choices[correct]["correct"] = True
     choices[correct]["feedback"] = '"Correct!"'
     return choices
@@ -163,11 +163,13 @@ def guess_question_type(question: str):
         'what is', 'which group', 'each variable', 'what are', 'are being', 
         'do you think', 'are the', 'must they be', 'are believing', 'how does',
         'which error', 'which of the following', 'which of these', 'which of the', 'which of these',
-        'what population', 'what parameter', 'determine if', 'what features', 'what does', 'what do '
+        'what population', 'what parameter', 'determine if', 'what features', 'what does', 'what do ',
+        'check if ', 'would it be ', 'do these ', 'state whether'
     ]
     long_text_phrases = [
         'describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 
-        'advantages and disadvantages', 'support your answer', 'write the', 'interpret ', 'what characteristics'
+        'advantages and disadvantages', 'support your answer', 'write the', 'interpret ', 'what characteristics',
+        'indicate any', 'write '
     ]
     drop_down_phrases = ['determine which of']
     file_upload_phrases = ['upload', 'draw ', 'construct ']
@@ -180,6 +182,19 @@ def guess_question_type(question: str):
         'compute': {},
         'estimate': {},
         'what proportion': {},
+        'state the null and alternative hypothes': {},
+        'how big': {},
+        'how much': {},
+        'how long': {},
+        'how far': {},
+        'how often': {},
+        'how many times': {},
+        'how many people': {},
+        'how many students': {},
+        'how small': {},
+        'how large': {},
+        'how tall': {},
+        'how wide': {},
         'what would be the': {},
         'what is the variance': {},
         'what is the standard deviation': {},
@@ -259,6 +274,9 @@ def guess_question_type(question: str):
     for ph in multiple_choice_starting_words:
         if question.strip().startswith(ph):
             return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
+    for ph in numeric_info_dict.keys():
+        if ph in question:
+            return {'type': 'number-input', **numeric_info_dict[ph]}
     for ph in file_upload_phrases:
         if ph in question:
             return {'type': 'file-upload'}
@@ -268,9 +286,6 @@ def guess_question_type(question: str):
     for ph in drop_down_phrases:
         if ph in question:
             return {'type': 'dropdown', 'choices': generate_random_choices(4)}
-    for ph in numeric_info_dict.keys():
-        if ph in question:
-            return {'type': 'number-input', **numeric_info_dict[ph]}
     for ph in multiple_choice_phrases:
         if ph in question:
             return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
