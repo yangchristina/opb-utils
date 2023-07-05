@@ -128,7 +128,9 @@ def generate_random_choices(num_choices: int):
     return choices
 
 
-def generate_yes_no_choices():
+def generate_yes_no_choices(answer: str = None):
+    if answer:
+        answer = answer.strip().lower()
     # Do I have access to solutions here?
     choices = [
         {
@@ -143,6 +145,46 @@ def generate_yes_no_choices():
     ]
     # TODO: add actual choices
     correct = random.randint(0, len(choices)-1)
+    if answer:
+        if answer.startswith('y'):
+            correct = 0
+        elif answer.startswith('n'):
+            correct = 1
+        elif 'yes' in answer:
+            correct = 0
+        elif 'no' in answer:
+            correct = 1
+    choices[correct]["correct"] = True
+    choices[correct]["feedback"] = '"Correct!"'
+    return choices
+
+
+def generate_true_false_choices(answer: str = None):
+    wrong_feedback = '"Try again please!"' #  if not answer else answer
+    if answer:
+        answer = answer.strip().lower()
+    # Do I have access to solutions here?
+    choices = [
+        {
+            "value": '"True"', 
+            "correct": False, 
+            "feedback": wrong_feedback
+        },{
+            "value": '"False"', 
+            "correct": False, 
+            "feedback": wrong_feedback
+        }
+    ]
+    correct = random.randint(0, len(choices)-1)
+    if answer:
+        if answer.strip().lower().startswith('t'):
+            correct = 0
+        elif answer.strip().lower().startswith('f'):
+            correct = 1
+        elif 'true' in answer:
+            correct = 0
+        elif 'false' in answer:
+            correct = 1
     choices[correct]["correct"] = True
     choices[correct]["feedback"] = '"Correct!"'
     return choices
@@ -291,8 +333,20 @@ def guess_question_type(question: str):
             return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
     return {'type': 'unknown'}
 
-def create_part(question, info, title, parts, additional_assets, number_variables, solutions):
+def create_part(question, info, title, parts, additional_assets, number_variables, solution: str):
     # TODO: PROBLEM HERE!!!
+    if info['type'] == 'multiple-choice' or info['type'] == 'dropdown':
+        if solution.strip().lower().startswith('true') or solution.strip().lower().startswith('false'):
+            print('\nSOLUTION:')
+            print(solution)
+            print('SOLUTION IS BOOLEAN')
+            info = {'type': 'multiple-choice', 'choices': generate_true_false_choices(solution)}
+
+        if solution.strip().lower().startswith('yes') or solution.strip().lower().startswith('no'):
+            print('\nSOLUTION:')
+            print(solution)
+            print('SOLUTION IS YES/NO')
+            info = {'type': 'multiple-choice', 'choices': generate_yes_no_choices(solution)}
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
         info = guess_question_type(title)
@@ -380,15 +434,15 @@ def handle_parts(lines, starting_index, title: str, solutions):
         items = [items[0]] if len(items) == 1 else []
         items += ['' for _ in range(len(solutions)-len(items))]
 
-    for x in items:
+    for x in (items):
         question = x.replace('\\\\','\n').strip()
         info = guess_question_type(question)
+        solution_index = len(parts)
         if type(info) is list:
             solutions_to_insert = []
-            solution_index = len(parts)
             for item in info:
                 # create_part(item['question'], item)
-                create_part(item['question'], info=item, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables, solutions=solutions)
+                create_part(item['question'], info=item, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables, solution=solutions[solution_index])
                 solutions_to_insert.append(item['extract_solution'](solutions[solution_index]))
             solutions.pop(solution_index)
             solutions[solution_index:solution_index] = solutions_to_insert
@@ -397,7 +451,7 @@ def handle_parts(lines, starting_index, title: str, solutions):
         # num_key = f'part{len(parts)+1}'
         # extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
             # create_part(question, info)
-            create_part(question, info=info, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables, solutions=solutions)
+            create_part(question, info=info, title=title, parts=parts, additional_assets=additional_assets, number_variables=number_variables, solution=solutions[solution_index])
 
 
         # parts.append({
@@ -446,7 +500,6 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 while closing_line == -1:
                     title_end_index += 1
                     (closing_line, closing_line_index) = closing_bracket_index(lines[i+2:title_end_index+1], find_2nd_string(lines[i + 2], '{'))
-                    print('second closing_line', find_2nd_string(lines[i + 2], '{'))
                 closing_line += i+2
                 title_lines = lines[i+2:closing_line+1]
                 if len(title_lines) == 1:
@@ -480,9 +533,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 description_lines[-1] = description_lines[-1].split(target)[0]
                 description = ' '.join(description_lines).strip()
                 description = remove_unmatched_closing(description)
-                if chapter == '5' and question == 23:
-                    print("CUR DESCRIPTION")
-                    print(description)
+
                 # print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
                 non_text_description_lines = []
                 # print(f'i: {i}, Question: {question}')
@@ -536,18 +587,12 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
 
 
 def read_chapter(chapter: str, questions: list):
-    if chapter == '4':
-        print([question['question_number'] for question in questions])
     questions.sort(key=lambda x: x['question_number'])
     chapter_info = read_chapter_info(chapter)
     all_sections = chapter_info['inputs']
     exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
     summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
-    print("CHAPTER", chapter)
     title = chapter_info['title']
-    print("ALL_SECTIONS")
-    print(all_sections)
-    print("SUMMED EXERCISE COUNTS", summed_counts)
     # return
     sections = {}
     for question in questions:
@@ -557,10 +602,6 @@ def read_chapter(chapter: str, questions: list):
             sections[section] = []
         sections[section].append(question)
 
-    if chapter == '4':
-        print("CHAPTER 4")
-        print("num questions", len(questions))
-        print("num sections", len(sections))
         # print("SECTIONS", json.dumps(sections, indent=2))
     results = []
     # print(all_sections)
@@ -677,7 +718,7 @@ if __name__ == "__main__":
     # print(sections_by_chapter)
     # print('\nquestions_by_chapter\n')
     # print(questions_by_chapter)
-    print('questions_by_chapter', len(questions_by_chapter['4']))
+    # print('questions_by_chapter', len(questions_by_chapter['4']))
     for (chapter, questions) in questions_by_chapter.items():
         read_chapter(chapter, uniq_by(questions, lambda x: x['question_number']))
 
