@@ -206,7 +206,7 @@ def guess_question_type(question: str):
         'do you think', 'are the', 'must they be', 'are believing', 'how does',
         'which error', 'which of the following', 'which of these', 'which of the', 'which of these',
         'what population', 'what parameter', 'determine if', 'what features', 'what does', 'what do ',
-        'check if ', 'would it be ', 'do these ', 'state whether'
+        'check if ', 'would it be ', 'do these ', 'state whether', 'what shape'
     ]
     long_text_phrases = [
         'describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 
@@ -224,6 +224,8 @@ def guess_question_type(question: str):
         'compute': {},
         'estimate': {},
         'what proportion': {},
+        'what fraction': {},
+        'what ratio': {},
         'state the null and alternative hypothes': {},
         'how big': {},
         'how much': {},
@@ -322,30 +324,24 @@ def guess_question_type(question: str):
     for ph in file_upload_phrases:
         if ph in question:
             return {'type': 'file-upload'}
-    for ph in long_text_phrases:
-        if ph in question:
-            return {'type': 'longtext'}
     for ph in drop_down_phrases:
         if ph in question:
             return {'type': 'dropdown', 'choices': generate_random_choices(4)}
     for ph in multiple_choice_phrases:
         if ph in question:
             return {'type': 'multiple-choice', 'choices': generate_random_choices(4)}
+    for ph in long_text_phrases:
+        if ph in question:
+            return {'type': 'longtext'}
     return {'type': 'unknown'}
 
 def create_part(question, info, title, parts, additional_assets, number_variables, solution: str):
     # TODO: PROBLEM HERE!!!
-    if info['type'] == 'multiple-choice' or info['type'] == 'dropdown':
+    if info['type'] == 'multiple-choice' or info['type'] == 'dropdown' or info['type'] == 'unknown':
         if solution.strip().lower().startswith('true') or solution.strip().lower().startswith('false'):
-            print('\nSOLUTION:')
-            print(solution)
-            print('SOLUTION IS BOOLEAN')
             info = {'type': 'multiple-choice', 'choices': generate_true_false_choices(solution)}
 
         if solution.strip().lower().startswith('yes') or solution.strip().lower().startswith('no'):
-            print('\nSOLUTION:')
-            print(solution)
-            print('SOLUTION IS YES/NO')
             info = {'type': 'multiple-choice', 'choices': generate_yes_no_choices(solution)}
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
