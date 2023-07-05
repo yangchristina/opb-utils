@@ -332,7 +332,8 @@ def handle_parts(lines, starting_index, title: str, solutions):
     parts = []
     items = []
     if start == -1:
-        sentences = [sentence for sentence in title.split('.') if sentence.strip() != '']
+        # PROBLEM: params. should not count
+        sentences = [sentence for sentence in title.split('. ') if sentence.strip() != '']
         split_index = -1
         # for i, sent in enumerate(sentences.reverse()):
         #     if '?' in sent:
@@ -340,7 +341,7 @@ def handle_parts(lines, starting_index, title: str, solutions):
         #         break
         # if split_index == -1:
         # info = guess_question_type(title)
-        items = [sentences[-1]]
+        items = [sentences[-1] + '.']
         # else:
         #     return [{
         #         'question': numbers_to_latex_equations('.'.join(sentences[split_index-1:])),
@@ -465,7 +466,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                     cur_line = lines[description_end_index]
                     if description_end_index == closing_line:
                         cur_line = cur_line[closing_line_index+1:]
-                    if target in cur_line:
+                    if (target in cur_line and not '\\begin{align' in cur_line) or '}{}' in cur_line:
                         break
                     if cur_line.strip() == '':
                         if started:
@@ -479,8 +480,9 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 description_lines[-1] = description_lines[-1].split(target)[0]
                 description = ' '.join(description_lines).strip()
                 description = remove_unmatched_closing(description)
-                # print("CUR DESCRIPTION")
-                # print(description)
+                if chapter == '5' and question == 23:
+                    print("CUR DESCRIPTION")
+                    print(description)
                 # print("END CUR DESCRIPTION", lines[description_end_index], lines[description_end_index+1])
                 non_text_description_lines = []
                 # print(f'i: {i}, Question: {question}')
@@ -498,12 +500,14 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 description, question_numbers = format_description(description, non_text_description_lines)
                 #endregion
 
+
+                # after adding parameters, description_end_index may have to be changed
                 #region parts
                 parts, number_variables, additional_assets = handle_parts(lines, description_end_index, description, solutions)
                 number_variables['description'] = question_numbers
                 #endregion
                 if len(parts) == 1:
-                    description = '.'.join([sentence for sentence in description.split('.') if sentence.strip() != ''][:-1]) + '.'
+                    description = '. '.join([sentence for sentence in description.split('. ') if sentence.strip() != ''][:-1]) + '.'
 
 
                 filename = str_to_filename(questions[cur_question]['issue_title'], '_')
@@ -624,7 +628,7 @@ if __name__ == "__main__":
         if item.pull_request:
             continue
 
-        print(item.comments)
+        # print(item.comments)
         with open('issues.txt', 'a') as f:
             f.write(f'{item.title}={item.number}\n')
 
