@@ -7,7 +7,7 @@ from solutions import find_solutions
 import os
 from table import latex_table_to_md, find_all_figures
 import pandoc
-from utils import remove_unmatched_closing, apply_indent, remove_tags, write_file, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, extract_first_number, split_question_by_if, split_question_by_question_mark, re_rstrip
+from utils import remove_unmatched_closing, uniq_by, remove_tags, find_2nd_string, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, extract_first_number, split_question_by_if, split_question_by_question_mark, re_rstrip
 import tempfile
 from constants import textbook_chapter_to_name
 import re
@@ -59,7 +59,7 @@ def count_exercises(chapter: str, section: str):
     lines = read_file(path)
     for i in lines:
         i = i.strip()
-        if i.startswith("\eoce{\qt{"):
+        if i.startswith("\eoce{"):
             count += 1
     return count
 
@@ -295,8 +295,9 @@ def create_part(question, info, title, parts, additional_assets, number_variable
     # TODO: PROBLEM HERE!!!
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
-        print(f'Unknown question type: {question}')
         info = guess_question_type(title)
+        if info['type'] == 'unknown':
+            info['type'] = 'longtext'
     # Because unknown, guessing title, which includes a latex table currently. Need to remove table from title
     num_key = f'part{len(parts)+1}'
 
@@ -431,7 +432,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
         question = questions[cur_question]['question_number']
 
         line = line.strip()
-        if line.startswith("% ") and lines[i + 2].strip().startswith('\eoce{\qt{'):
+        if line.startswith("% ") and lines[i + 2].strip().startswith('\eoce{'):
             if int(line.split(' ')[-1]) != question:
                 continue
             else:
@@ -443,7 +444,8 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 closing_line = -1
                 while closing_line == -1:
                     title_end_index += 1
-                    (closing_line, closing_line_index) = closing_bracket_index(lines[i+2:title_end_index+1], 9)
+                    (closing_line, closing_line_index) = closing_bracket_index(lines[i+2:title_end_index+1], find_2nd_string(lines[i + 2], '{'))
+                    print('second closing_line', find_2nd_string(lines[i + 2], '{'))
                 closing_line += i+2
                 title_lines = lines[i+2:closing_line+1]
                 if len(title_lines) == 1:
@@ -487,7 +489,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 try:
                     figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}'])
                 except Exception as e:
-                    print("ERROR FINDING FIGURES", chapter, section, question)
+                    print("\nERROR FINDING FIGURES", chapter, section, question)
                     print(e)
                 if table is not None:
                     non_text_description_lines.append(table)
@@ -518,6 +520,10 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                     "solutions": solutions,
                 })
                 cur_question += 1
+    if cur_question < len(questions):
+        print("Looping again: CUR QUESTION", cur_question, questions[cur_question])
+        print("chapter", chapter, "section", section, "questions", [question['question_number'] for question in questions], len(questions))
+        raise Exception("Looping again")
 
     # print("CHAPTER", chapter)
     # print(json.dumps(exercises, indent=4))
@@ -526,15 +532,18 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
 
 
 def read_chapter(chapter: str, questions: list):
+    if chapter == '4':
+        print([question['question_number'] for question in questions])
     questions.sort(key=lambda x: x['question_number'])
     chapter_info = read_chapter_info(chapter)
     all_sections = chapter_info['inputs']
     exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
     summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
+    print("CHAPTER", chapter)
     title = chapter_info['title']
-    # print("ALL_SECTIONS")
-    # print(all_sections)
-    # print("EXERCISE COUNTS", exercise_counts)
+    print("ALL_SECTIONS")
+    print(all_sections)
+    print("SUMMED EXERCISE COUNTS", summed_counts)
     # return
     sections = {}
     for question in questions:
@@ -544,7 +553,11 @@ def read_chapter(chapter: str, questions: list):
             sections[section] = []
         sections[section].append(question)
 
-    # print("SECTIONS", sections)
+    if chapter == '4':
+        print("CHAPTER 4")
+        print("num questions", len(questions))
+        print("num sections", len(sections))
+        # print("SECTIONS", json.dumps(sections, indent=2))
     results = []
     # print(all_sections)
     # for (section, questions) in sections.items():
@@ -553,8 +566,13 @@ def read_chapter(chapter: str, questions: list):
     # file_questions = [q - summed_counts[section_index] for q in questions]
     question_solutions_dict = find_solutions(title, questions)
     for (section, questions) in sections.items():
-        # print("SECTION", section)
+        print("SECTION", section, "count", len(questions))
+        print([question['question_number'] for question in questions])
         results += get_exercises(chapter, section, questions, question_solutions_dict)
+
+    if chapter == '4':
+        print("CHAPTER 4")
+        print("num exercises", len(results))
 
     with open('completed.txt', 'r') as reader:
         lines = reader.readlines()
@@ -605,9 +623,27 @@ if __name__ == "__main__":
         # print('issue number', item.number)
         if item.pull_request:
             continue
-        
+
+        print(item.comments)
         with open('issues.txt', 'a') as f:
             f.write(f'{item.title}={item.number}\n')
+
+
+        tmp_filepath = str_to_filename(item.title, '_')
+        dir_path = 'info/' + tmp_filepath
+        if not os.path.exists('info'):
+            os.mkdir('info')
+        if not os.path.exists(dir_path):
+            os.mkdir(dir_path)
+
+        with open(f'{dir_path}/issue_number.txt', 'w') as f:
+            f.write(str(item.number))
+        with open(f'{dir_path}/assign.txt', 'w') as f:
+            if len(item.assignees) > 0:
+                f.write(','.join([a.login.strip() for a in item.assignees]))
+            else:
+                f.write('')
+
         question_info = item.title.split("Q")[-1]
         chapter, question = question_info.split('.')
         chapter = chapter.strip()
@@ -637,8 +673,9 @@ if __name__ == "__main__":
     # print(sections_by_chapter)
     # print('\nquestions_by_chapter\n')
     # print(questions_by_chapter)
+    print('questions_by_chapter', len(questions_by_chapter['4']))
     for (chapter, questions) in questions_by_chapter.items():
-        read_chapter(chapter, questions)
+        read_chapter(chapter, uniq_by(questions, lambda x: x['question_number']))
 
     # should_split_question("blue. fish? are cool, today; today is a good day.")
     # for (chapter, sections) in sections_by_chapter.items():

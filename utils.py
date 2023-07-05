@@ -1,6 +1,22 @@
 import re 
 import nltk.data
 
+def uniq_by(list1, fn=None):
+    seen_keys = set()
+
+    if fn is None:
+        fn = lambda x: x
+    # initialize a null list
+    unique_list = []
+    # traverse for all elements
+    for x in list1:
+        key = fn(x)
+        if key in seen_keys:
+            continue
+        unique_list.append(x)
+        seen_keys.add(key)
+    return unique_list
+
 def apply_indent(lines, indent):
     return [indent + x for x in lines]
 
@@ -239,3 +255,6 @@ def re_strip(string, char="\s"):
     result = re_lstrip(string, char)
     result = re_rstrip(result, char)
     return result
+
+def find_2nd_string(txt, str1):
+    return txt.find(str1, txt.find(str1)+1)

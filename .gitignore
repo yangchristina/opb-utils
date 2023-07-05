@@ -1,5 +1,6 @@
 .env
 questions/
+info/
 __pycache__/**
 completed.txt
 issues.txt
