@@ -202,8 +202,18 @@ def write_md(exercise):
         if a.endswith('.html'):
             asset_lines.append(f"- {a}")
             continue
-        figure_dir_path = f"{TEXTBOOK_PATH}/{textbook_chapter_to_name[chapter]}/figures/{a}"
-        figure_name = os.listdir(figure_dir_path)[0]
+        fig_dir = '/'.join(a.split('/')[:-1])
+        # if not fig_dir.split:
+        #     fig_dir = a
+        figure_dir_path = f"{TEXTBOOK_PATH}/{textbook_chapter_to_name[chapter]}/figures/{fig_dir}"
+        figure_name = ''
+        # filebase
+        tmp_name = a.split('/')[-1]
+        for figure in os.listdir(figure_dir_path):
+            if figure.startswith(tmp_name):
+                figure_name = figure
+                break
+        # figure_name = os.listdir(figure_dir_path)
         figure_no_extension_name, ext = figure_name.split('.')
         if ext == 'pdf':
             images = None

@@ -1,5 +1,5 @@
 
-from utils import unwrap_unsupported_tags, string_is_numeric
+from utils import unwrap_unsupported_tags, string_is_numeric, get_between_strings, find_2nd_string
 
 
 def grab_latex_tag_section(lines, starting_index, target, phrases_signalling_end=None):
@@ -137,26 +137,54 @@ def latex_table_to_md(key: str, lines, starting_index, variables, phrases_signal
 
     return '\n'.join(md_lines).replace('\\\\', '')
 
+
 def find_all_figures(latex_lines, starting_line_index, phrases_signalling_end=None):
     """Finds all figures in a latex document/string."""
     figures = []
     # print("in figures, starting index", starting_line_index)
     figure_found = False
-    for line in latex_lines[starting_line_index:]:
-        # if (line.strip() != ''):
-        #     print(line)
-        if phrases_signalling_end is not None:
-            for end_phrase in phrases_signalling_end:
-                if end_phrase in line:
-                    return figures
-        if '\\Figures' in line:
-            figure_found = True
-        if figure_found and ']' in line:
-            bracket_index = line.index(']') #  might be on a different line
-            starting_index = line[bracket_index:].index('}') + 2 + bracket_index
-            ending_index = line[starting_index:].index('}') + starting_index
-            figures.append(line[starting_index:ending_index])
-            figure_found = False
+
+    all_lines = ' '.join(latex_lines[starting_line_index:]).strip()
+    if not all_lines:
+        return figures
+    # print("all lines", all_lines)
+    text = all_lines[:all_lines.index('}{}')]
+    if '\\Figures' not in text:
+        return figures
+    # text = '\\Figures' + get_between_strings(all_lines, '\\Figures', '}{}')
+    while '\\Figures' in text:
+        starting_index = text.index('\\Figures')
+        text = text[starting_index + len('\\Figures'):]
+        if '[' in text[:text.index(' ')]:
+            if ']' not in text:
+                raise Exception("No closing bracket for figure")
+            text = text[text.index(']')+1:]
+        if '}' not in text:
+            raise Exception("No bracket for figure")
+        text = text[text.index('}') + 1:]
+        path = text.split(' ')[0].replace('}{', '/').replace('{', '')
+        path = path[:path.index('}')].strip()
+        # if '.' not in path:
+        #     path += '.pdf'
+        # figure_path = text.split(' ')[0].split('{')[-1].split('}')[0]
+        figures.append(path)
+
+    # for line in latex_lines[starting_line_index:]:
+    #     # if (line.strip() != ''):
+    #     #     print(line)
+    #     if phrases_signalling_end is not None:
+    #         for end_phrase in phrases_signalling_end:
+    #             if end_phrase in line:
+    #                 return figures
+    #     if '\\Figures' in line:
+    #         figure_found = True
+    #     if figure_found and ']' in line:
+    #         bracket_index = line.index(']') #  might be on a different line
+    #         starting_index = line[bracket_index:].index('}') + 2 + bracket_index
+    #         ending_index = line[starting_index:].index('}') + starting_index
+    #         figures.append(line[starting_index:ending_index])
+    #         figure_found = False
+    print("figures", figures)
     return figures
     # \Figures[An ear is show, with an "M" shown near the front lower lobe of the ear and an "S" shown near the middle upper portion of the ear.]{0.75}{eoce/migraine_and_acupuncture_intro}{earacupuncture}
 

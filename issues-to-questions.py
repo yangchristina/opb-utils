@@ -44,7 +44,6 @@ def read_chapter_info(chapter: str):
     path = get_file_url(chapter, textbook_chapter_to_name[chapter])
     lines = read_file(path)
     title = lines[0].split('{')[-1].split('}')[0]
-    print('TITLE', title)
     inputs = []
     for i in lines:
         i = i.strip()
@@ -493,15 +492,16 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 #region title
                 title_end_index = i + 1
                 closing_line = -1
+                bracket_start_index = find_2nd_string(lines[i + 2], '{')
                 while closing_line == -1:
                     title_end_index += 1
-                    (closing_line, closing_line_index) = closing_bracket_index(lines[i+2:title_end_index+1], find_2nd_string(lines[i + 2], '{'))
+                    (closing_line, closing_line_index) = closing_bracket_index(lines[i+2:title_end_index+1], bracket_start_index)
                 closing_line += i+2
                 title_lines = lines[i+2:closing_line+1]
                 if len(title_lines) == 1:
-                    title_lines[0] = title_lines[0][10:closing_line_index]
+                    title_lines[0] = title_lines[0][bracket_start_index+1:closing_line_index]
                 else:
-                    title_lines[0] = title_lines[0][10:]
+                    title_lines[0] = title_lines[0][bracket_start_index+1:]
                     title_lines[-1] = title_lines[-1][:closing_line_index]
                 title = ' '.join(title_lines)
                 title = remove_tags(title)
@@ -535,11 +535,11 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 # print(f'i: {i}, Question: {question}')
                 table = latex_table_to_md(f'table{table_num}', lines, description_end_index+1, variables=variables, phrases_signalling_end=['\\begin{parts}', '}{}'])
                 figures = []
-                try:
-                    figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}'])
-                except Exception as e:
-                    print("\nERROR FINDING FIGURES", chapter, section, question)
-                    print(e)
+                # try:
+                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}'])
+                # except Exception as e:
+                #     print("\nERROR FINDING FIGURES", chapter, section, question)
+                #     print(e)
                 if table is not None:
                     non_text_description_lines.append(table)
                     table_num += 1
