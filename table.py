@@ -138,23 +138,29 @@ def latex_table_to_md(key: str, lines, starting_index, variables, phrases_signal
     return '\n'.join(md_lines).replace('\\\\', '')
 
 
-def find_all_figures(latex_lines, starting_line_index, phrases_signalling_end=None):
+def find_all_figures(all_lines: str, phrases_signalling_end=None):
     """Finds all figures in a latex document/string."""
     figures = []
     # print("in figures, starting index", starting_line_index)
     figure_found = False
 
-    all_lines = ' '.join(latex_lines[starting_line_index:]).strip()
-    if not all_lines:
+    # all_lines = ' '.join(latex_lines[starting_line_index:]).strip()
+    if not all_lines.strip():
         return figures
     # print("all lines", all_lines)
-    text = all_lines[:all_lines.index('}{}')]
-    if '\\Figures' not in text:
+
+    end_phrase_index = 0
+    while phrases_signalling_end and end_phrase_index < len(phrases_signalling_end) and phrases_signalling_end[end_phrase_index] not in all_lines:
+        end_phrase_index += 1
+
+    text = all_lines if phrases_signalling_end is None or end_phrase_index == len(phrases_signalling_end) else all_lines[:all_lines.index(phrases_signalling_end[end_phrase_index])]
+
+    if '\\Figure' not in text:
         return figures
-    # text = '\\Figures' + get_between_strings(all_lines, '\\Figures', '}{}')
-    while '\\Figures' in text:
-        starting_index = text.index('\\Figures')
-        text = text[starting_index + len('\\Figures'):]
+    # text = '\\Figures' + get_between_strings(all_lines, '\\Figure', '}{}')
+    while '\\Figure' in text:
+        starting_index = text.index('\\Figure')
+        text = text[starting_index + len('\\Figure'):]
         if '[' in text[:text.index(' ')]:
             if ']' not in text:
                 raise Exception("No closing bracket for figure")

@@ -562,7 +562,7 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 table = latex_table_to_md(f'table{table_num}', lines, description_end_index+1, variables=variables, phrases_signalling_end=['\\begin{parts}', '}{}'])
                 figures = []
                 # try:
-                figures = find_all_figures(lines, description_end_index+1, phrases_signalling_end=['\\begin{parts}', '}{}'])
+                figures = find_all_figures(' '.join(lines[description_end_index+1:]).strip(), phrases_signalling_end=['}{}'])
                 # except Exception as e:
                 #     print("\nERROR FINDING FIGURES", chapter, section, question)
                 #     print(e)

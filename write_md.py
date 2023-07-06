@@ -5,6 +5,7 @@ import tempfile
 from constants import textbook_chapter_to_name
 from pdf2image import convert_from_path
 import json
+from table import find_all_figures
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -90,6 +91,41 @@ def format_type_info(info: dict):
     return apply_indent(list, indent)
 
 
+def move_figure(chapter: str, a: str, exercise_path: str):
+    dir_path = WRITE_PATH + '/' + ''.join(exercise_path.split('.')[:-1])
+
+    fig_dir = '/'.join(a.split('/')[:-1])
+    print(fig_dir)
+    # if not fig_dir.split:
+    #     fig_dir = a
+    figures_prefix = f'{textbook_chapter_to_name[chapter]}/figures/'
+    if 'figures' in a:
+        figures_prefix = ''
+    figure_dir_path = f"{TEXTBOOK_PATH}/{figures_prefix}{fig_dir}"
+    figure_name = ''
+    # filebase
+    tmp_name = a.split('/')[-1]
+    print("listing figures")
+    for figure in os.listdir(figure_dir_path):
+        print(figure)
+        if figure.lower().startswith(tmp_name.lower()):
+            figure_name = figure
+            break
+    print('figure_name', figure_name)
+    # figure_name = os.listdir(figure_dir_path)
+    figure_no_extension_name, ext = figure_name.split('.')
+    if ext == 'pdf':
+        images = None
+        with tempfile.TemporaryDirectory() as tmp_path:
+            images = convert_from_path(f'{figure_dir_path}/{figure_name}', output_folder=tmp_path, use_cropbox=True)
+            figure_name = f'{figure_no_extension_name}.jpg'
+            if len(images) > 0:
+                images[0].save(f'{dir_path}/{figure_name}', 'JPEG')
+    else:
+            shutil.copyfile(f'{figure_dir_path}/{figure_name}', f'{dir_path}/{figure_name}')
+    return figure_name
+
+
 def write_code(exercise: dict):
     indent = '        '
     lines = ["data2 = pbh.create_data2()", "",]
@@ -142,6 +178,18 @@ def write_code(exercise: dict):
         print(json.dumps([x["question"] for x in exercise['parts']], indent=2))
         print("solns:")
         print(json.dumps(exercise['solutions'], indent=2))
+
+    for solution in exercise['solutions']:
+
+        figures = find_all_figures(solution)
+        if exercise['chapter'] == '3' and '\\Figure' in solution:
+            print("\nFIGURES")
+            print(figures)
+            print("solution")
+            print(solution)
+        for a in figures:
+            move_figure(exercise['chapter'], a, exercise['path'])
+    
     for part_num, part in enumerate(exercise['parts']):
         if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':
             lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
@@ -202,26 +250,7 @@ def write_md(exercise):
         if a.endswith('.html'):
             asset_lines.append(f"- {a}")
             continue
-        fig_dir = '/'.join(a.split('/')[:-1])
-        # if not fig_dir.split:
-        #     fig_dir = a
-        figure_dir_path = f"{TEXTBOOK_PATH}/{textbook_chapter_to_name[chapter]}/figures/{fig_dir}"
-        figure_name = ''
-        # filebase
-        tmp_name = a.split('/')[-1]
-        for figure in os.listdir(figure_dir_path):
-            if figure.startswith(tmp_name):
-                figure_name = figure
-                break
-        # figure_name = os.listdir(figure_dir_path)
-        figure_no_extension_name, ext = figure_name.split('.')
-        if ext == 'pdf':
-            images = None
-            with tempfile.TemporaryDirectory() as tmp_path:
-                images = convert_from_path(f'{figure_dir_path}/{figure_name}', output_folder=tmp_path, use_cropbox=True)
-                figure_name = f'{figure_no_extension_name}.jpg'
-                if len(images) > 0:
-                    images[0].save(f'{dir_path}/{figure_name}', 'JPEG')
+        figure_name = move_figure(chapter, a, exercise['path'])
         asset_to_filename[a] = figure_name
         asset_lines.append(f"- {figure_name}")
     lines_to_write += asset_lines
