@@ -82,7 +82,7 @@ def unwrap_tags(string: str):
 def unwrap_unsupported_tags(stringV: str):
     string = stringV.replace("\\\\", "\n").replace("``", '"').replace("''", '"')
     supported_tags = ['\\textit{', '\\$', '\\mu', '\\sigma', '\\frac{', '\\ne']
-    unsupported_remove_entirely_tags = ['\\footfullcite', '\\noindent']
+    unsupported_remove_entirely_tags = ['\\footfullcite', '\\noindent', '\renewcommand\arraystretch']
     # unsupported, \footfullcite + \noindent, \emph, '\\raisebox'
     result = ''
     while '\\' in string:

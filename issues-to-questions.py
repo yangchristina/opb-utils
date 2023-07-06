@@ -336,15 +336,20 @@ def guess_question_type(question: str):
 
 def create_part(question, info, title, parts, additional_assets, number_variables, solution: str):
     # TODO: PROBLEM HERE!!!
-    if info['type'] == 'multiple-choice' or info['type'] == 'dropdown' or info['type'] == 'unknown':
-        if solution.strip().lower().startswith('true') or solution.strip().lower().startswith('false'):
-            info = {'type': 'multiple-choice', 'choices': generate_true_false_choices(solution)}
-
+    if solution.strip().lower().startswith('true') or solution.strip().lower().startswith('false'):
+        info = {'type': 'multiple-choice', 'choices': generate_true_false_choices(solution)}
+    elif info['type'] == 'multiple-choice' or info['type'] == 'dropdown' or info['type'] == 'unknown':
         if solution.strip().lower().startswith('yes') or solution.strip().lower().startswith('no'):
             info = {'type': 'multiple-choice', 'choices': generate_yes_no_choices(solution)}
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
         info = guess_question_type(title)
+        # if isinstance(info, list):
+        #     print('\nHERE')
+        #     print(question)
+        #     print(title)
+        #     print(info)
+        #     raise Exception('Problem with question type guessing')
         if info['type'] == 'unknown':
             info['type'] = 'longtext'
     # Because unknown, guessing title, which includes a latex table currently. Need to remove table from title
@@ -433,6 +438,16 @@ def handle_parts(lines, starting_index, title: str, solutions):
         question = x.replace('\\\\','\n').strip()
         info = guess_question_type(question)
         solution_index = len(parts)
+        if type(info) is not list and info['type'] == 'unknown':
+            info = guess_question_type(title)
+            # if isinstance(info, list):
+            #     print('\nHERE')
+            #     print(question)
+            #     print(title)
+            #     print(info)
+            #     raise Exception('Problem with question type guessing')
+            # if info['type'] == 'unknown':
+            #     info['type'] = 'longtext'
         if type(info) is list:
             solutions_to_insert = []
             for item in info:
@@ -443,6 +458,16 @@ def handle_parts(lines, starting_index, title: str, solutions):
             solutions[solution_index:solution_index] = solutions_to_insert
             # TODO: handle solutions
         else: 
+            if info['type'] == 'unknown':
+                info = guess_question_type(title)
+                if isinstance(info, list):
+                    print('\nHERE')
+                    print(question)
+                    print(title)
+                    print(info)
+                    raise Exception('Problem with question type guessing')
+                if info['type'] == 'unknown':
+                    info['type'] = 'longtext'
         # num_key = f'part{len(parts)+1}'
         # extracted_question, question_numbers = numbers_to_latex_equations(unwrap_unsupported_tags(question), num_key)
             # create_part(question, info)
@@ -508,14 +533,15 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
                 #endregion
 
                 #region description
-                target = '\\begin'
+                target = '\\begin{parts'
                 description_end_index = closing_line
                 started = False
                 while description_end_index < len(lines):
                     cur_line = lines[description_end_index]
                     if description_end_index == closing_line:
                         cur_line = cur_line[closing_line_index+1:]
-                    if (target in cur_line and not '\\begin{align' in cur_line) or '}{}' in cur_line:
+                    if (target in cur_line and '\\begin{align' not in cur_line and '\\begin{center' not in cur_line) or '}{}' in cur_line:
+                        print('chapter', chapter, 'section', section, 'question', question)
                         break
                     if cur_line.strip() == '':
                         if started:
