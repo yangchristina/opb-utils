@@ -21,7 +21,7 @@ def md_part_lines(part, i, params=None, solution=None):
     q_type = part['info']['type']
     answer_section = ''
     if q_type == 'number-input':
-        answer_section ='Please enter in a numeric value in.\n'
+        answer_section ='Please enter a numeric value in.\n'
     elif q_type == 'multiple-choice' or q_type == 'dropdown':
         choices = part['info']['choices']
         answer_section = '\n'.join([f'- {{{{ params.part{i+1}.ans{j+1}.value }}}}' for j in range(len(choices))])
@@ -125,7 +125,7 @@ def move_figure(chapter: str, a: str, exercise_path: str):
 
 def write_code(exercise: dict):
     indent = '        '
-    lines = ["data2 = pbh.create_data2()", "",]
+    lines = ["data2 = pbh.create_data2()", "", f'data2["params"]["vars"]["title"] = "{exercise["title"]}"']
 
     num_variables = exercise['num_variables']
     variables = exercise['variables']
