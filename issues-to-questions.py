@@ -344,12 +344,12 @@ def create_part(question, info, title, parts, additional_assets, number_variable
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
         info = guess_question_type(title)
-        # if isinstance(info, list):
-        #     print('\nHERE')
-        #     print(question)
-        #     print(title)
-        #     print(info)
-        #     raise Exception('Problem with question type guessing')
+        if isinstance(info, list):
+            print('\nHERE')
+            print(question)
+            print(title)
+            print(info)
+            raise Exception('Problem with question type guessing')
         if info['type'] == 'unknown':
             info['type'] = 'longtext'
     # Because unknown, guessing title, which includes a latex table currently. Need to remove table from title

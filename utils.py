@@ -81,20 +81,36 @@ def unwrap_tags(string: str):
 # ISSUE: might add an extra \n
 def unwrap_unsupported_tags(stringV: str):
     string = stringV.replace("\\\\", "\n").replace("``", '"').replace("''", '"')
-    supported_tags = ['\\textit{', '\\$', '\\mu', '\\sigma', '\\frac{', '\\ne']
-    unsupported_remove_entirely_tags = ['\\footfullcite', '\\noindent', '\renewcommand\arraystretch']
+    supported_tags = [
+        '\\textit{', 
+        '\\$', '\\mu', '\\sigma', 
+        '\\frac{', '\\sum_{', '\\prod_{', '\\sqrt['
+        '\\ne', '\\geq', '\\leq', '\\times', '\\cdot', '\\pm', '\\%',
+    ]
+    # if no variables, should automatically support
+    unsupported_remove_entirely_tags = ['\\footfullcite', '\\noindent', '\\renewcommand\\arraystretch']
     # unsupported, \footfullcite + \noindent, \emph, '\\raisebox'
     result = ''
     while '\\' in string:
         index = string.index('\\')
         matching_tags = [tag for tag in supported_tags if string[index:].startswith(tag)]
-        if len(matching_tags) > 0:
-            end_tag_index = find_end_tag(string[index:])+index if matching_tags[0].endswith("{") else index + (string[index:].index(' ') - 1 if ' ' in string[index:] else len(matching_tags[0])-1)
+
+        first_section = string[index:].strip().split(' ')[0].strip()
+        do_not_wrap = False
+        if len(matching_tags) > 0 or not '{' in first_section:
+            if not '{' in first_section:
+                end_tag_index = index + len(first_section)-1
+                do_not_wrap = True
+            else:
+            # if '{' not in first_section:
+            #     end_tag_index = len(first_section)-1
+            # else:
+                end_tag_index = find_end_tag(string[index:])+index if matching_tags[0].endswith("{") else index + (string[index:].index(' ') - 1 if ' ' in string[index:] else len(matching_tags[0])-1)
             # index + len(matching_tags[0])-1
             result += string[:index]
 
             cur_line = string[index:end_tag_index+1]
-            if '$' in cur_line or (index > 0 and string[index-1] == '$'):
+            if do_not_wrap or '$' in cur_line or (index > 0 and string[index-1] == '$'):
                 result += f'{cur_line}'
             else:
                 result += f'${cur_line}$'

@@ -95,7 +95,7 @@ def move_figure(chapter: str, a: str, exercise_path: str):
     dir_path = WRITE_PATH + '/' + ''.join(exercise_path.split('.')[:-1])
 
     fig_dir = '/'.join(a.split('/')[:-1])
-    print(fig_dir)
+    # print(fig_dir)
     # if not fig_dir.split:
     #     fig_dir = a
     figures_prefix = f'{textbook_chapter_to_name[chapter]}/figures/'
@@ -105,13 +105,10 @@ def move_figure(chapter: str, a: str, exercise_path: str):
     figure_name = ''
     # filebase
     tmp_name = a.split('/')[-1]
-    print("listing figures")
     for figure in os.listdir(figure_dir_path):
-        print(figure)
         if figure.lower().startswith(tmp_name.lower()):
             figure_name = figure
             break
-    print('figure_name', figure_name)
     # figure_name = os.listdir(figure_dir_path)
     figure_no_extension_name, ext = figure_name.split('.')
     if ext == 'pdf':
@@ -182,11 +179,6 @@ def write_code(exercise: dict):
     for solution in exercise['solutions']:
 
         figures = find_all_figures(solution)
-        if exercise['chapter'] == '3' and '\\Figure' in solution:
-            print("\nFIGURES")
-            print(figures)
-            print("solution")
-            print(solution)
         for a in figures:
             move_figure(exercise['chapter'], a, exercise['path'])
     
