@@ -76,6 +76,8 @@ def get_pl_customizations(info: dict = {}, index: int = 0):
         ans = ['placeholder: "Type your answer here..."', f'file-name: "answer{index+1}.html"', 'quill-theme: "snow"', 'directory: clientFilesQuestion', 'source-file-name: sample.html']
     elif type == 'file-upload':
         ans = ['file-names: "file.png, file.jpg, file.pdf, filename space.png"']
+    elif type == 'matching':
+        ans = ['weight: 1', 'blank: true']
     return ['  pl-customizations:'] + apply_indent(lines=ans, indent=pl_indent)
 
 
@@ -88,6 +90,8 @@ def format_type_info(info: dict):
         list.append('gradingMethod: Manual')
     if info_type == 'number-input' and 'sigfigs' in info and info['sigfigs'] == 'integer':
         list.append('label: $d=$')
+    if info_type == 'matching':
+        list.append('showCorrectAnswer: true')
     return apply_indent(list, indent)
 
 
@@ -189,6 +193,16 @@ def write_code(exercise: dict):
                 for (key, val) in choice.items():
                     lines += [f"data2['params']['part{part_num+1}']['ans{choice_num+1}']['{key}'] = {val}"]
                 lines.append('')
+            lines.append('')
+        if part['info']['type'] == 'matching':
+            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
+            for (key, val) in part['info']['options'].items():
+                print("\nVALUE", val)
+                lines += [f'data2["params"]["part{part_num+1}"]["{key}"]["value"] = {val}']
+            lines.append('')
+            for s_num, statement_info in enumerate(part['info']['statements']):
+                lines += [f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["value"] = {statement_info["value"]}']
+                lines += [f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["matches"] = "{statement_info["matches"]}"']
             lines.append('')
         if part['info']['type'] == 'number-input':
             numeric_answer = None

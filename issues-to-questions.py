@@ -285,6 +285,17 @@ def guess_question_type(question: str):
         "what's the expected": {},
     }
 
+    ch1_matching_type = {
+        'type': 'matching',
+        'options': {
+            'option1': '"Not a variable in the study"',
+            'option2': '"Numerical and discrete variable"',
+            'option3': '"Numerical and continuous variable"',
+            'option4': '"Categorical"',
+            # 'option4': 'Categorical and not ordinal variable',
+        },
+        'statements': [{'value': '"Statement 1"', 'matches': 'option1' }],
+    }
     # ADD CUSTOM SPLITS HERE, MUST BE LOWER CASE
     multi_part_direct_match = {
         'who are the subjects in this study, and how many are included?': [
@@ -294,8 +305,13 @@ def guess_question_type(question: str):
             {'type': 'number-input', 'sigfigs': 'integer', 'question': 'How many of the above subjects are included?',
                 'extract_solution': extract_first_number,
             },
-        ]
+        ],
+        'what are the variables in the study? identify each variable as numerical or categorical. if numerical, state whether the variable is discrete or continuous. if categorical, state whether the variable is ordinal.': ch1_matching_type,
+        'how many numerical variables are included in the data? indicate what they are, and if they are continuous or discrete.': ch1_matching_type,
+        'how many variables were recorded for each subject in the study in order to conclude these findings? state the variables and their types.': ch1_matching_type,
     }
+    if question in multi_part_direct_match:
+        return multi_part_direct_match[question]
     
     split_questions = split_question_by_if(question)
     if split_questions:
@@ -305,9 +321,6 @@ def guess_question_type(question: str):
         split_questions = split_question_by_question_mark(question)
     if split_questions:
         return [{'question': q, 'extract_solution': lambda x: x, **guess_question_type(q)} for q in split_questions]
-    
-    if question in multi_part_direct_match:
-        return multi_part_direct_match[question]
 
     # if question.count('if') > 2:
     #     return {'type': 'dropdown', 'choices': generate_random_choices(4)}
@@ -677,8 +690,8 @@ if __name__ == "__main__":
 
     repo = g.get_repo("open-resources/instructor_stats_bank")
 
-    # issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
-    issues = repo.get_issues(state="open")
+    issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+    # issues = repo.get_issues(state="open")
     print(issues.totalCount)
 
     questions_by_chapter = {}
