@@ -164,14 +164,14 @@ def write_code(exercise: dict):
             randomized_str = ''
             if num.is_integer():
                 if abs(num) > 15:
-                    randomized_str = f"random.randint({int(num - num//10)}, {int(num + num//10)})"
+                    randomized_str = f"random.randint({int(num - abs(num)//10)}, {int((num + abs(num)//10))})"
                 else:
-                    randomized_str = f"random.randint({int(num - num)}, {int(num + num)})"
+                    randomized_str = f"random.randint({int(num - abs(num))}, {int(num + abs(num))})"
                 num = int(num)
                 if 1900 < num < 2900:
                     randomized_str = num
             else:
-                randomized_str = f"round(random.uniform({num - num/10}, {num + num/10}), 2)" 
+                randomized_str = f"round(random.uniform({num - abs(num)/10}, {num + abs(num)/10}), 2)" 
             line = f"{cur_var_name} = {randomized_str}  #{num}" if not used else f"{key}_num{i+1} = {used}"
             lines.append(line)
         

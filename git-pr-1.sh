@@ -8,7 +8,7 @@ WRITE_PATH=/Users/christinayang/Documents/GitHub/OPB/instructor_stats_bank/sourc
 # git clone https://github.com/open-resources/instructor_physics_bank.git
 
 # TODO: Change this to file you would like to commit
-BRANCH_NAME=2_1_examining_numerical_data_q2_5
+BRANCH_NAME=1_3_sampling_principles_and_strategies_q1_13
 # ISSUE_NUMBER=7
 
 # ex. BRANCH_NAME=1_1_case_study_using_stents_to_prevent_strokes_q1_1
