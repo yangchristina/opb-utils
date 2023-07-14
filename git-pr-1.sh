@@ -8,8 +8,8 @@ WRITE_PATH=/Users/christinayang/Documents/GitHub/OPB/instructor_stats_bank/sourc
 # git clone https://github.com/open-resources/instructor_physics_bank.git
 
 # TODO: Change this to file you would like to commit
-BRANCH_NAME=1_2_data_basics_q1_9
-ISSUE_NUMBER=5
+BRANCH_NAME=1_2_data_basics_q1_7
+ISSUE_NUMBER=3
 
 # ex. BRANCH_NAME=1_1_case_study_using_stents_to_prevent_strokes_q1_1
 FILE=questions/$BRANCH_NAME/$BRANCH_NAME.md
@@ -20,7 +20,8 @@ echo $FILE
 git reset --hard origin/main
 echo $FILE
 out="$(basename $FILE .md)"
-git checkout -B $out
+AUTO_BRANCH_NAME="auto_$(basename $FILE .md)"
+git checkout -B $AUTO_BRANCH_NAME
 # git pull origin $out
 # git merge $out
 # git merge main
@@ -28,6 +29,6 @@ cp -R /Users/christinayang/Documents/GitHub/OPB/opb-utils/questions/$out $WRITE_
 echo "ADDING $WRITE_PATH/$out"
 git add $WRITE_PATH/$out
 git commit -m "ready for review"
-git push --force-with-lease origin $out
+git push --force-with-lease origin $AUTO_BRANCH_NAME
 echo "PUSHED $FILE SUCCESSFULLY"
-hub pull-request -m "$BRANCH_NAME" -m "This resolves #$ISSUE_NUMBER"
+# hub pull-request -m "$BRANCH_NAME" -m "This resolves #$ISSUE_NUMBER"
