@@ -8,11 +8,22 @@ WRITE_PATH=/Users/christinayang/Documents/GitHub/OPB/instructor_stats_bank/sourc
 # git clone https://github.com/open-resources/instructor_physics_bank.git
 
 # TODO: Change this to file you would like to commit
-BRANCH_NAME=1_2_data_basics_q1_7
-ISSUE_NUMBER=3
+BRANCH_NAME=2_1_examining_numerical_data_q2_5
+# ISSUE_NUMBER=7
 
 # ex. BRANCH_NAME=1_1_case_study_using_stents_to_prevent_strokes_q1_1
 FILE=questions/$BRANCH_NAME/$BRANCH_NAME.md
+
+array[0]="sophivar"
+array[1]="SamuelStreet"
+array[2]="IRIDIXVdt"
+array[3]="camirr"
+array[4]="alebuiles"
+
+size=${#array[@]}
+index=$(($RANDOM % $size))
+REVIEWER=${array[$index]}
+echo "REVIEWER: $REVIEWER"
 
 cd /Users/christinayang/Documents/GitHub/OPB/instructor_stats_bank
 echo "HII"
@@ -22,6 +33,9 @@ echo $FILE
 out="$(basename $FILE .md)"
 AUTO_BRANCH_NAME="auto_$(basename $FILE .md)"
 git checkout -B $AUTO_BRANCH_NAME
+INFO_PATH=/Users/christinayang/Documents/GitHub/OPB/opb-utils/info/$out
+ASSIGN=$(cat $INFO_PATH/assign.txt)
+ISSUE_NUMBER=$(cat $INFO_PATH/issue_number.txt)
 # git pull origin $out
 # git merge $out
 # git merge main
@@ -32,3 +46,6 @@ git commit -m "ready for review"
 git push --force-with-lease origin $AUTO_BRANCH_NAME
 echo "PUSHED $FILE SUCCESSFULLY"
 # hub pull-request -m "$BRANCH_NAME" -m "This resolves #$ISSUE_NUMBER"
+gh pr edit $AUTO_BRANCH_NAME --add-label "check_syntax" #--add-reviewer $REVIEWER
+gh pr reopen $AUTO_BRANCH_NAME
+gh pr ready $AUTO_BRANCH_NAME

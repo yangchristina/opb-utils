@@ -212,6 +212,7 @@ def guess_question_type(question: str):
         'advantages and disadvantages', 'support your answer', 'write the', 'interpret ', 'what characteristics',
         'indicate any', 'write '
     ]
+    matching_phrases = ['determine which of the following is']
     drop_down_phrases = ['determine which of']
     file_upload_phrases = ['upload', 'draw ', 'construct ']
 
@@ -333,6 +334,9 @@ def guess_question_type(question: str):
     for ph in numeric_info_dict.keys():
         if ph in question:
             return {'type': 'number-input', **numeric_info_dict[ph]}
+    for ph in matching_phrases:
+        if ph in question:
+            return {'type': 'matching', **ch1_matching_type}
     for ph in file_upload_phrases:
         if ph in question:
             return {'type': 'file-upload'}

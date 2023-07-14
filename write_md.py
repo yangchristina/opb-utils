@@ -197,7 +197,6 @@ def write_code(exercise: dict):
         if part['info']['type'] == 'matching':
             lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             for (key, val) in part['info']['options'].items():
-                print("\nVALUE", val)
                 lines += [f'data2["params"]["part{part_num+1}"]["{key}"]["value"] = {val}']
             lines.append('')
             for s_num, statement_info in enumerate(part['info']['statements']):
