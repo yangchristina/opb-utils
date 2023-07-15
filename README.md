@@ -9,7 +9,7 @@
 To use: 
 1. create .env file, and copy .env.example there, and fill in. 
 2. Create an empty completed.txt file. 
-3. Run `nltk.download('punkt')`
+3. Run `nltk.download('punkt')` and `nltk.download('stopwords')` and something else i've forgotten 
 
 TODOS:
 - when matching supported: change ifs to match matching instead of dropdown

@@ -95,7 +95,6 @@ part3:
 part4:
   type: number-input
   pl-customizations:
-    comparison: decdig
     rtol: 0.02
     weight: 1
     allow-blank: true
@@ -103,7 +102,7 @@ part4:
 ---
 # {{ params.vars.title }}
 
-Sally gets a cup of coffee and a muffin every day for breakfast from one of the many coffee shops in her neighborhood. She picks a coffee shop each morning at random and independently of previous days. The average price of a cup of coffee is \$${{ params.description.num1 }}$ with a standard deviation of \${{ params.description.std }}, the average price of a muffin is \$${{ params.description.num2 }}$ with a standard deviation of ${{ params.description.num3 }}$ and the two prices are independent of each other.
+Sally gets a cup of coffee and a muffin every day for breakfast from one of the many coffee shops in her neighborhood. She picks a coffee shop each morning at random and independently of previous days. The average price of a cup of coffee is \$${{ params.description.num1 }}$ with a standard deviation of \${{ params.description.std }}, the average price of a muffin is \$${{ params.description.num2 }}$ with a standard deviation of ${{ params.description.num3 }}$ and the two prices are independent of each other. (Round the following to 2 decimal places)
 
 ## Part 1
 

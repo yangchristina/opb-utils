@@ -1,12 +1,13 @@
 import os
 import shutil
-from utils import replace_file_line, apply_indent, write_file, apply_params_to_str, string_is_numeric
+from utils import replace_file_line, apply_indent, write_file, apply_params_to_str, string_is_numeric, insert_into_file
 import tempfile
 from constants import textbook_chapter_to_name, topics
 from pdf2image import convert_from_path
 import json
 from table import find_all_figures
-
+import pandas as pd
+from similarity import text_similarity
 from dotenv import load_dotenv
 load_dotenv()
 # question What is the variance of the mean of these $n$ values: $\frac{X_1 + X_2 + \dots + X_n}{n}$?
@@ -263,6 +264,33 @@ def write_md(exercise):
     replace_file_line(path, 3, f"author: {MY_NAME}")
     replace_file_line(path, 21, f"tags:")
     replace_file_line(path, 22, f"- {MY_INITIALS}")
+
+    df = pd.read_csv('/Users/christinayang/Documents/GitHub/OPB/learning_outcomes/outputs_csv/LO_stats.csv')
+    df = df.loc[df['Topic'] == topics[chapter]]
+
+    question_text = '\n'.join([x['question'] for x in exercise['parts']]) + '\n' + exercise['description'] + '\n' + exercise['title'] + '\n' + '\n'.join(exercise['solutions'])
+    df['Similarity'] = df.apply(lambda row: text_similarity(row['Learning Outcome'], question_text), axis = 1)
+
+
+    # df.sort_values(by=['Brand'], inplace=True, ascending=False)
+
+    min_value = 1
+    while len(df.index)>3:
+        df = df.loc[df['Similarity'] > min_value]
+        min_value += 0.5
+        # df = df[df.apply(lambda row: text_similarity(row['Learning Outcome'], question_text) >= min_value, axis=1)]
+    # text_similarity()
+    values_to_insert = ''.join([f"- {row['Code']}  # {row['Learning Outcome']}\n" for index, row in df.iterrows()])
+    insert_into_file(path, 11, values_to_insert)
+    for index, row in df.iterrows():
+        print("SIM:", row['Similarity'])
+    # df = df.loc[text_similarity(df['Learning Outcome'], question_text) > 0.2]
+    # print("\nDF HERE:")
+    # print(df.to_string())
+
+
+    # 
+
 
     # TODO: write expression
     lines_to_write = []

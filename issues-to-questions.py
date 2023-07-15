@@ -126,36 +126,60 @@ def generate_random_choices(num_choices: int):
     choices[correct]["feedback"] = '"Correct!"'
     return choices
 
-
-def generate_yes_no_choices(answer: str = None):
+def generate_given_choices(options: list, answer: str = None):
     if answer:
         answer = answer.strip().lower()
-    # Do I have access to solutions here?
     choices = [
         {
-            "value": '"Yes"', 
-            "correct": False, 
-            "feedback": '"Try again please!"'
-        },{
-            "value": '"No"', 
+            "value": f'"{option}"', 
             "correct": False, 
             "feedback": '"Try again please!"'
         }
-    ]
+    for option in options]
     # TODO: add actual choices
     correct = random.randint(0, len(choices)-1)
     if answer:
-        if answer.startswith('y'):
-            correct = 0
-        elif answer.startswith('n'):
-            correct = 1
-        elif 'yes' in answer:
-            correct = 0
-        elif 'no' in answer:
-            correct = 1
+        for (i, option) in enumerate(options):
+            first_letter = option.strip()[0].lower()
+            if answer.startswith(first_letter):
+                correct = i
+                break
+            elif option in answer:
+                correct = i
     choices[correct]["correct"] = True
     choices[correct]["feedback"] = '"Correct!"'
     return choices
+
+def generate_yes_no_choices(answer: str = None):
+    return generate_given_choices(['Yes', 'No'], answer)
+    # if answer:
+    #     answer = answer.strip().lower()
+    # # Do I have access to solutions here?
+    # choices = [
+    #     {
+    #         "value": '"Yes"', 
+    #         "correct": False, 
+    #         "feedback": '"Try again please!"'
+    #     },{
+    #         "value": '"No"', 
+    #         "correct": False, 
+    #         "feedback": '"Try again please!"'
+    #     }
+    # ]
+    # # TODO: add actual choices
+    # correct = random.randint(0, len(choices)-1)
+    # if answer:
+    #     if answer.startswith('y'):
+    #         correct = 0
+    #     elif answer.startswith('n'):
+    #         correct = 1
+    #     elif 'yes' in answer:
+    #         correct = 0
+    #     elif 'no' in answer:
+    #         correct = 1
+    # choices[correct]["correct"] = True
+    # choices[correct]["feedback"] = '"Correct!"'
+    # return choices
 
 
 def generate_true_false_choices(answer: str = None):
@@ -358,6 +382,8 @@ def create_part(question, info, title, parts, additional_assets, number_variable
     elif info['type'] == 'multiple-choice' or info['type'] == 'dropdown' or info['type'] == 'unknown':
         if solution.strip().lower().startswith('yes') or solution.strip().lower().startswith('no'):
             info = {'type': 'multiple-choice', 'choices': generate_yes_no_choices(solution)}
+        if solution.strip().lower().startswith('invalid') or solution.strip().lower().startswith('valid'):
+            info = {'type': 'multiple-choice', 'choices': generate_given_choices(['Valid', 'Invalid'], solution)}
     # Added 'are being' to phrases, so problem may disappear. So remove to get problem again
     if info['type'] == 'unknown':
         info = guess_question_type(title)

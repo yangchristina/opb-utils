@@ -37,6 +37,17 @@ def replace_file_line(file_name, line_num, text):
         f.writelines(lines)
 
 
+def insert_into_file(path, index, content: str):
+    with open(path, "r") as f:
+        contents = f.readlines()
+
+    contents.insert(index, content)
+
+    with open(path, "w") as f:
+        contents = "".join(contents)
+        f.write(contents)
+
+
 def remove_unmatched_closing(string: str):
     stack = []
     for i, c in enumerate(string):
