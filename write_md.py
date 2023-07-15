@@ -16,6 +16,7 @@ GITHUB_ACCESS_TOKEN = os.environ.get("GITHUB_ACCESS_TOKEN")
 GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME")
 WRITE_PATH = './questions'
 MY_NAME = os.environ.get("MY_NAME")
+MY_INITIALS = os.environ.get("MY_INITIALS")
 
 def md_part_lines(part, i, params=None, solution=None):
     q_type = part['info']['type']
@@ -260,6 +261,8 @@ def write_md(exercise):
     replace_file_line(path, 1, f"title: {exercise['title']}")
     replace_file_line(path, 2, f"topic: {topics[chapter]}")
     replace_file_line(path, 3, f"author: {MY_NAME}")
+    replace_file_line(path, 21, f"tags:")
+    replace_file_line(path, 22, f"- {MY_INITIALS}")
 
     # TODO: write expression
     lines_to_write = []
