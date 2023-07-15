@@ -2,7 +2,7 @@ import os
 import shutil
 from utils import replace_file_line, apply_indent, write_file, apply_params_to_str, string_is_numeric
 import tempfile
-from constants import textbook_chapter_to_name
+from constants import textbook_chapter_to_name, topics
 from pdf2image import convert_from_path
 import json
 from table import find_all_figures
@@ -15,7 +15,7 @@ TEXTBOOK_PATH = os.environ.get("TEXTBOOK_PATH")
 GITHUB_ACCESS_TOKEN = os.environ.get("GITHUB_ACCESS_TOKEN")
 GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME")
 WRITE_PATH = './questions'
-
+MY_NAME = os.environ.get("MY_NAME")
 
 def md_part_lines(part, i, params=None, solution=None):
     q_type = part['info']['type']
@@ -256,7 +256,10 @@ def write_md(exercise):
     if not os.path.exists(dir_path):
         os.mkdir(dir_path)
     shutil.copyfile('q11_multi-part.md', path)
+
     replace_file_line(path, 1, f"title: {exercise['title']}")
+    replace_file_line(path, 2, f"topic: {topics[chapter]}")
+    replace_file_line(path, 3, f"author: {MY_NAME}")
 
     # TODO: write expression
     lines_to_write = []
