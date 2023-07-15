@@ -9,7 +9,7 @@ partialCredit: true
 singleVariant: false
 showCorrectAnswer: true
 outcomes:
-- 3.1.1.4  # Define a probability distribution as a list of the possible outcomes with corresponding probabilities that satisfies three rules; the outcomes listed must be disjoint, each probability must be between 0 and 1, inclusive and the probabilities must total 1.
+- 3.1.1.4
 difficulty:
 - undefined
 randomization:
@@ -198,7 +198,7 @@ part6:
 # {{ params.vars.title }}
 
 Each row in the table below is a proposed grade distribution for a class. Identify each as a valid or invalid probability distribution.
-|  |  A ------   |  B ------  |  C ------  |  D ------  |  F | 
+|  |  A ------   |  B ------  |  C ------  |  D ------  |  F |
 | --- | ------------ | ------------ | ------------ | ------------ | ------------ |
 | (a) | ${{ params.description.num1 }}$   | ${{ params.description.num2 }}$   | ${{ params.description.num3 }}$   | ${{ params.description.num4 }}$   | ${{ params.description.ra_cf }}$
 | (b) | ${{ params.description.num5 }}$     | ${{ params.description.num6 }}$     | ${{ params.description.num7 }}$     | ${{ params.description.num8 }}$     | ${{ params.description.num9 }}$

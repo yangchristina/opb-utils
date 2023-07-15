@@ -9,8 +9,8 @@ partialCredit: true
 singleVariant: false
 showCorrectAnswer: true
 outcomes:
-- 3.1.1.14  # Expected value and variance of a discrete random variable, X, can be calculated.
-- 3.1.1.15  # Standard deviation is the square root of variance. We use standard deviation also as a measure of the variability of the random variable. Standard deviation is often easier to interpret since it's in the same units of the random variable.
+- 3.1.1.14
+- 3.1.1.15
 difficulty:
 - undefined
 randomization:
