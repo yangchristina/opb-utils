@@ -138,7 +138,7 @@ def num_variable_to_line_value(num: float):
             range_value = abs(num)
         randomized_str = f"random.randint({int(num - range_value)}, {int(num + range_value)})"
         num = int(num)
-        if 1900 < num < 2900:
+        if 1900 < num < 2090:
             randomized_str = num
     else:
         count_after_decimal = str(num)[::-1].find('.')
