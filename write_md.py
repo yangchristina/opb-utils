@@ -129,6 +129,26 @@ def move_figure(chapter: str, a: str, exercise_path: str):
     return figure_name
 
 
+def num_variable_to_line_value(num: float):
+    randomized_str = ''
+    if num.is_integer():
+        if abs(num) > 15:
+            range_value = abs(num)//10
+        else:
+            range_value = abs(num)
+        randomized_str = f"random.randint({int(num - range_value)}, {int(num + range_value)})"
+        num = int(num)
+        if 1900 < num < 2900:
+            randomized_str = num
+    else:
+        count_after_decimal = str(num)[::-1].find('.')
+        if abs(num) <= 0.5:
+            range_value = round(abs(num)*2, count_after_decimal)
+        else:
+            range_value = round(abs(num)/10, count_after_decimal)
+        randomized_str = f"round(random.uniform({round(num - range_value, count_after_decimal)}, {round(num + range_value, count_after_decimal)}), {count_after_decimal})" 
+    return f"{randomized_str}  # {num}"
+
 def write_code(exercise: dict):
     indent = '        '
     lines = ["data2 = pbh.create_data2()", "", f'data2["params"]["vars"]["title"] = "{exercise["title"]}"']
@@ -142,8 +162,17 @@ def write_code(exercise: dict):
     # region Handle variables
     used_by = {}
     for (var_name, value) in variables.items():
-        lines.append(f"{var_name} = {value}")
-        used_by[value] = var_name
+        if type(value) == float:
+            num = value
+            used = used_by[num] if (num in used_by) else ''
+            if not used:
+                used_by[num] = var_name
+
+            line = f"{var_name} = {num_variable_to_line_value(num)}" if not used else f"{key}_num{i+1} = {used}"
+            lines.append(line)
+        else:
+            lines.append(f"{var_name} = {value}")
+            used_by[value] = var_name
     lines.append('')
     for (var_name, value) in variables.items():
         values = var_name.split('_')
@@ -157,26 +186,14 @@ def write_code(exercise: dict):
     lines.append('# Randomize Variables')
     for (key, values) in num_variables.items():
         for (i, num) in enumerate(values):
-            # check if num has been used previously
             cur_var_name = f"{key}_num{i+1}"
             used = used_by[num] if (num in used_by) else ''
             if not used:
                 used_by[num] = cur_var_name
-            
-            randomized_str = ''
-            if num.is_integer():
-                if abs(num) > 15:
-                    randomized_str = f"random.randint({int(num - abs(num)//10)}, {int((num + abs(num)//10))})"
-                else:
-                    randomized_str = f"random.randint({int(num - abs(num))}, {int(num + abs(num))})"
-                num = int(num)
-                if 1900 < num < 2900:
-                    randomized_str = num
-            else:
-                randomized_str = f"round(random.uniform({num - abs(num)/10}, {num + abs(num)/10}), 2)" 
-            line = f"{cur_var_name} = {randomized_str}  #{num}" if not used else f"{key}_num{i+1} = {used}"
+
+            line = f"{cur_var_name} = {num_variable_to_line_value(num)}" if not used else f"{key}_num{i+1} = {used}"
             lines.append(line)
-        
+
     lines.append('')
     lines.append('# store the variables in the dictionary "params"')
     for (key, values) in num_variables.items():
