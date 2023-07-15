@@ -1,5 +1,5 @@
 ---
-title: Variance of a mean, Part III
+title: Variance of a mean, Part I + Part III
 topic: Probability
 author: Christina Yang
 source: original
@@ -9,6 +9,8 @@ partialCredit: true
 singleVariant: false
 showCorrectAnswer: true
 outcomes:
+- 3.1.1.14  # Expected value and variance of a discrete random variable, X, can be calculated.
+- 3.1.1.15  # Standard deviation is the square root of variance. We use standard deviation also as a measure of the variability of the random variable. Standard deviation is often easier to interpret since it's in the same units of the random variable.
 difficulty:
 - undefined
 randomization:
@@ -32,15 +34,30 @@ server:
   generate: |
         data2 = pbh.create_data2()
 
-        data2["params"]["vars"]["title"] = "Variance of a mean, Part III"
+        data2["params"]["vars"]["title"] = "Variance of a mean, Part I + Part III"
 
+        variants = [
+            {
+                  'description': 'Suppose we have independent observations $X_1$ and $X_2$ from a distribution with mean $\mu$ and standard deviation $\sigma$.',
+                  'question': r'What is the variance of the mean of the two values: $\frac{X_1 + X_2}{2}$?',
+                  'answer': r'$Var\left(\frac{X_1 + X_2}{2}\right)$  $= Var\left(\frac{X_1}{2} + \frac{X_2}{2}\right)$  $= \frac{Var(X_1)}{2^2} + \frac{Var(X_2)}{2^2}$  $= \frac{\sigma^2}{4} + \frac{\sigma^2}{4}$  $= \sigma^2 / 2$',
+            },
+            {
+                  'description': 'Suppose we have $n$ independent observations $X_1$, $X_2$, ..., $X_n$ from a distribution with mean $\mu$ and standard deviation $\sigma$.',
+                  'question': r'What is the variance of the mean of these $n$ values: $\frac{X_1 + X_2 + \dots + X_n}{n}$?',
+                  'answer': r'$Var\left(\frac{X_1 + X_2 + \dots + X_n}{n}\right)$  $= Var\left(\frac{X_1}{n} + \frac{X_2}{n} + \dots + \frac{X_n}{n}\right)$  $= \frac{Var(X_1)}{n^2} + \frac{Var(X_2)}{n^2} + \dots + \frac{Var(X_n)}{n^2}$  $= \frac{\sigma^2}{n^2} + \frac{\sigma^2}{n^2} + \dots + \frac{\sigma^2}{n^2}$ (there are $n$ of these terms)  $= n \frac{\sigma^2}{n^2}$  $= \sigma^2 / n$'
+            }
+        ]
+
+        variant = variants[random.randint(0, len(variants)-1)]
+
+        data2['params']['description']['text'] = variant['description']
+        data2['params']['part1']['question'] = variant['question']
+        data2['params']['part1']['correct_text'] = variant['answer']
 
         # Randomize Variables
 
         # store the variables in the dictionary "params"
-
-        # Part 1 is a number-input question.
-        data2['correct_answers']['part1_ans'] = 0  # TODO: insert correct answer here
 
         mu, sg, n = sp.symbols('mu sg n')
 
@@ -68,19 +85,19 @@ part1:
 ---
 # {{ params.vars.title }}
 
-Suppose we have $n$ independent observations $X_1$, $X_2$, ..., $X_n$ from a distribution with mean $\mu$ and standard deviation $\sigma$.
+{{ params.description.text }}
+
 
 | For  | Use   |
 |----------|-------|
 | $\mu$  | mu  |
 | $\sigma$  | sg  |
 | $n$  | n  |
-| $X_1$  | x1  |
-| $X_n$  | xn  |
+| $X_i$  | xi  |
 
 ## Part 1
 
-What is the variance of the mean of these $n$ values: $\frac{X_1 + X_2 + \dots + X_n}{n}$? .
+{{ params.part1.question }}
 
 ### Answer Section
 
@@ -89,15 +106,7 @@ Please enter a numeric value in.
 
 ### pl-answer-panel
 
-Part 1: $Var\left(\frac{X_1 + X_2 + \dots + X_n}{n}\right)$
-  $= Var\left(\frac{X_1}{n} + \frac{X_2}{n} + \dots +
-      \frac{X_n}{n}\right)$
-  $= \frac{Var(X_1)}{n^2} + \frac{Var(X_2)}{n^2} + \dots +
-      \frac{Var(X_n)}{n^2}$
-  $= \frac{\sigma^2}{n^2} + \frac{\sigma^2}{n^2} + \dots +
-      \frac{\sigma^2}{n^2}$ (there are $n$ of these terms)
-  $= n \frac{\sigma^2}{n^2}$
-  $= \sigma^2 / n$
+Part 1: {{ params.part1.correct_text }}
 
 
 ## Rubric
