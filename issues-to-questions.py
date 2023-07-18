@@ -721,8 +721,7 @@ if __name__ == "__main__":
     repo = g.get_repo("open-resources/instructor_stats_bank")
 
     if GITHUB_USERNAME:
-        # issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
-        issues = repo.get_issues(state="closed", assignee=GITHUB_USERNAME)
+        issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
     else:
         issues = repo.get_issues(state="open")
     print(issues.totalCount)
