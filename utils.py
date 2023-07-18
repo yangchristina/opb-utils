@@ -1,4 +1,4 @@
-import re 
+import re
 import nltk.data
 
 def uniq_by(list1, fn=None):
@@ -93,8 +93,8 @@ def unwrap_tags(string: str):
 def unwrap_unsupported_tags(stringV: str):
     string = stringV.replace("\\\\", "\n").replace("``", '"').replace("''", '"')
     supported_tags = [
-        '\\textit{', 
-        '\\$', '\\mu', '\\sigma', 
+        '\\textit{',
+        '\\$', '\\mu', '\\sigma',
         '\\frac{', '\\sum_{', '\\prod_{', '\\sqrt['
         '\\ne', '\\geq', '\\leq', '\\times', '\\cdot', '\\pm', '\\%',
     ]
@@ -177,8 +177,8 @@ def numbers_to_latex_equations(paragraph: str, key: str):
     for i, word in enumerate(words):
         if len(word) == 0:
             continue
-        possible_prefixes = ['(', '[', '{', "\\$"]
-        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '%']
+        possible_prefixes = ['(', '[', '{', "\\$", '|']
+        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '%', '\\%', '|']
         prefix = ''
         suffix = ''
 
