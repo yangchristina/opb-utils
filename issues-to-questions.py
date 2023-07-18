@@ -39,7 +39,7 @@ def get_file_url(chapter: str, filename: str):
 def read_file(path):
     with open(path, 'r') as f:
         return f.readlines()
-    
+
 def read_chapter_info(chapter: str):
     path = get_file_url(chapter, textbook_chapter_to_name[chapter])
     lines = read_file(path)
@@ -131,8 +131,8 @@ def generate_given_choices(options: list, answer: str = None):
         answer = answer.strip().lower()
     choices = [
         {
-            "value": f'"{option}"', 
-            "correct": False, 
+            "value": f'"{option}"',
+            "correct": False,
             "feedback": '"Try again please!"'
         }
     for option in options]
@@ -157,12 +157,12 @@ def generate_yes_no_choices(answer: str = None):
     # # Do I have access to solutions here?
     # choices = [
     #     {
-    #         "value": '"Yes"', 
-    #         "correct": False, 
+    #         "value": '"Yes"',
+    #         "correct": False,
     #         "feedback": '"Try again please!"'
     #     },{
-    #         "value": '"No"', 
-    #         "correct": False, 
+    #         "value": '"No"',
+    #         "correct": False,
     #         "feedback": '"Try again please!"'
     #     }
     # ]
@@ -189,12 +189,12 @@ def generate_true_false_choices(answer: str = None):
     # Do I have access to solutions here?
     choices = [
         {
-            "value": '"True"', 
-            "correct": False, 
+            "value": '"True"',
+            "correct": False,
             "feedback": wrong_feedback
         },{
-            "value": '"False"', 
-            "correct": False, 
+            "value": '"False"',
+            "correct": False,
             "feedback": wrong_feedback
         }
     ]
@@ -225,14 +225,14 @@ def guess_question_type(question: str):
 
     # numeric_phrases = ['what percent', 'calculate', 'how many', 'what is the probability']
     multiple_choice_phrases = [
-        'what is', 'which group', 'each variable', 'what are', 'are being', 
+        'what is', 'which group', 'each variable', 'what are', 'are being',
         'do you think', 'are the', 'must they be', 'are believing', 'how does',
         'which error', 'which of the following', 'which of these', 'which of the', 'which of these',
         'what population', 'what parameter', 'determine if', 'what features', 'what does', 'what do ',
         'check if ', 'would it be ', 'do these ', 'state whether', 'what shape'
     ]
     long_text_phrases = [
-        'describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify', 
+        'describe', 'explain', 'why', 'comment on', 'what is one other possible explanation', 'identify',
         'advantages and disadvantages', 'support your answer', 'write the', 'interpret ', 'what characteristics',
         'indicate any', 'write '
     ]
@@ -337,7 +337,7 @@ def guess_question_type(question: str):
     }
     if question in multi_part_direct_match:
         return multi_part_direct_match[question]
-    
+
     split_questions = split_question_by_if(question)
     if split_questions:
         question_type = guess_question_type(split_questions[0])
@@ -500,7 +500,7 @@ def handle_parts(lines, starting_index, title: str, solutions):
             solutions.pop(solution_index)
             solutions[solution_index:solution_index] = solutions_to_insert
             # TODO: handle solutions
-        else: 
+        else:
             if info['type'] == 'unknown':
                 info = guess_question_type(title)
                 if isinstance(info, list):
@@ -721,7 +721,8 @@ if __name__ == "__main__":
     repo = g.get_repo("open-resources/instructor_stats_bank")
 
     if GITHUB_USERNAME:
-        issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+        # issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+        issues = repo.get_issues(state="closed", assignee=GITHUB_USERNAME)
     else:
         issues = repo.get_issues(state="open")
     print(issues.totalCount)
@@ -766,7 +767,7 @@ if __name__ == "__main__":
         if chapter not in questions_by_chapter:
             questions_by_chapter[chapter] = []
         questions_by_chapter[chapter].append({"question_number": question, 'issue_title': item.title})
-        
+
         # if item.title.startswith('Chapter Exercises'):
         # index = item.title.find('q')
         # else:

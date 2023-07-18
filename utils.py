@@ -178,20 +178,21 @@ def numbers_to_latex_equations(paragraph: str, key: str):
         if len(word) == 0:
             continue
         possible_prefixes = ['(', '[', '{', "\\$", '|']
-        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '%', '\\%', '|']
+        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '\\%', '%',  '|', '\\']
         prefix = ''
         suffix = ''
 
         for pre in possible_prefixes:
             if word.startswith(pre):
                 word = word[len(pre):]
-                prefix = pre
-                break
+                prefix += pre
+                # break
         for suf in possible_suffixes:
             if word.endswith(suf):
                 word = word[:-len(suf)]
-                suffix = suf
-                break
+                suffix = suf + suffix
+                # break
+
         word = word.replace(',', '')  # ex. 1,000,000
 
         if string_is_numeric(word):
