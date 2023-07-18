@@ -33,23 +33,23 @@ def md_part_lines(part, i, params=None, solution=None):
     # if part['type'] == 'multiple-choice':
 
     result = [
-        f'## Part {i+1}', '', 
-        part['question'], '', 
+        f'## Part {i+1}', '',
+        part['question'], '',
     ]
 
     result += [
         '### Answer Section\n',
-        answer_section, '', 
-        # answer_section2, 
+        answer_section, '',
+        # answer_section2,
         ]
-    
+
     if solution:
         if params:
             formated_soln = apply_params_to_str(solution, params)
             result += ['### pl-answer-panel', '', f'Part {i+1}: {formated_soln}', '']
         else:
             result += ['### pl-answer-panel', '', f'Part {i+1}: {solution}', '']
-    
+
     return result + ['']
 
 
@@ -62,7 +62,7 @@ def get_pl_customizations(info: dict = {}, index: int = 0):
     elif type == 'number-input':
         # TODO: need to know if integer or not
         if 'sigfigs' in info and info['sigfigs'] == 'integer':
-            ans = ['weight: 1', 'allow-blank: true'] #'label: $d= $', 
+            ans = ['weight: 1', 'allow-blank: true'] #'label: $d= $',
         else:
             ans = ['rtol: 0.05', 'weight: 1', 'allow-blank: true', 'label: $d= $']
         if 'suffix' in info:
@@ -146,7 +146,7 @@ def num_variable_to_line_value(num: float):
             range_value = round(abs(num)*2, count_after_decimal)
         else:
             range_value = round(abs(num)/10, count_after_decimal)
-        randomized_str = f"round(random.uniform({round(num - range_value, count_after_decimal)}, {round(num + range_value, count_after_decimal)}), {count_after_decimal})" 
+        randomized_str = f"round(random.uniform({round(num - range_value, count_after_decimal)}, {round(num + range_value, count_after_decimal)}), {count_after_decimal})"
     return f"{randomized_str}  # {num}"
 
 def write_code(exercise: dict):
@@ -206,7 +206,7 @@ def write_code(exercise: dict):
     if len(exercise['parts']) != len(exercise['solutions']):
         print(f"MISMATCH: parts {len(exercise['parts'])}, solns {len(exercise['solutions'])}")
         print("parts:")
-        
+
         print(json.dumps([x["question"] for x in exercise['parts']], indent=2))
         print("solns:")
         print(json.dumps(exercise['solutions'], indent=2))
@@ -216,7 +216,7 @@ def write_code(exercise: dict):
         figures = find_all_figures(solution)
         for a in figures:
             move_figure(exercise['chapter'], a, exercise['path'])
-    
+
     for part_num, part in enumerate(exercise['parts']):
         if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':
             lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
@@ -267,9 +267,9 @@ def write_code(exercise: dict):
 def write_md(exercise):
     solutions = exercise['solutions']
     chapter = exercise['chapter']
-    
+
     dir_path = WRITE_PATH + '/' + ''.join(exercise['path'].split('.')[:-1])
-    path = dir_path + '/' + exercise['path'] 
+    path = dir_path + '/' + exercise['path']
     if not os.path.exists('questions'):
         os.mkdir('questions')
     if not os.path.exists(dir_path):
@@ -305,10 +305,6 @@ def write_md(exercise):
     # print("\nDF HERE:")
     # print(df.to_string())
 
-
-    # 
-
-
     # TODO: write expression
     lines_to_write = []
     asset_lines = ["assets:"]
@@ -337,7 +333,7 @@ def write_md(exercise):
         question_part_lines += question_lines
     lines_to_write += question_part_lines
     lines_to_write += ['---', '# {{ params.vars.title }}', '', exercise['description'], '']
-    
+
     # TODO: ADD ASSETS HERE, how should assets be formatted?, since parts assets + main assets
     for a in exercise['assets']:
         filename = asset_to_filename[a] if a in asset_to_filename else a

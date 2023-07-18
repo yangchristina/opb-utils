@@ -169,6 +169,9 @@ def get_between_strings(text: str, start_target: str, end_target: str | list[str
 def string_is_numeric(s: str):
     return s.lstrip("-").replace('.','',1).isdigit()
 
+
+possible_prefixes = ['(', '[', '{', "\\$", '|']
+possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '\\%', '%',  '|', '\\']
 def numbers_to_latex_equations(paragraph: str, key: str):
     numbers = []
     # TODO: handle negative numbers
@@ -177,17 +180,15 @@ def numbers_to_latex_equations(paragraph: str, key: str):
     for i, word in enumerate(words):
         if len(word) == 0:
             continue
-        possible_prefixes = ['(', '[', '{', "\\$", '|']
-        possible_suffixes = ['.', ',', '?', '!', ':', ';', ')', ']', '}', '\\%', '%',  '|', '\\']
         prefix = ''
         suffix = ''
 
-        for pre in possible_prefixes:
+        for pre in possible_prefixes + possible_prefixes:
             if word.startswith(pre):
                 word = word[len(pre):]
                 prefix += pre
                 # break
-        for suf in possible_suffixes:
+        for suf in possible_suffixes + possible_suffixes:
             if word.endswith(suf):
                 word = word[:-len(suf)]
                 suffix = suf + suffix
@@ -202,8 +203,6 @@ def numbers_to_latex_equations(paragraph: str, key: str):
 
 
 def handle_word(wordV: str, params_dict: dict):
-    possible_prefixes = ['(', '[', '{', "\\$", '$']
-    possible_suffixes = [')', ']', '}', ';', '?', '!', '.', ',', '%', '$', ':']
     prefix = ''
     suffix = ''
     word = wordV
@@ -224,6 +223,7 @@ def handle_word(wordV: str, params_dict: dict):
             return f'{prefix}{{{{ params.{param_name.replace("_", ".")} }}}}{suffix}'
     return wordV
 
+# Used to apply params to solutions
 def apply_params_to_str(paragraph: str, params_dict: dict):
     # TODO: handle negative numbers
 
@@ -232,6 +232,7 @@ def apply_params_to_str(paragraph: str, params_dict: dict):
     for i, word in enumerate(words):
         if len(word) == 0:
             continue
+        # TODO: split word by '\\' too
         arr = [handle_word(w, params_dict) for w in word.split('/')]
         words[i] = '/'.join(arr)
 
