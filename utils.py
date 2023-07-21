@@ -292,3 +292,8 @@ def re_strip(string, char="\s"):
 
 def find_2nd_string(txt, str1):
     return txt.find(str1, txt.find(str1)+1)
+
+
+def count_decimal_places(num: float):
+    """number of digits after decimal point"""
+    return str(num)[::-1].find('.')

@@ -11,7 +11,7 @@ WRITE_PATH=/Users/christinayang/Documents/GitHub/instructor_stats_bank/source/un
 
 # opb-utils/questions/q03_data_basics/q03_data_basics.md
 
-for FILE in w-ready/*/*.md;
+for FILE in questions/*/*.md; 
 do python $CHECKQ $FILE --output_root $PL_QUESTION_PATH
-# do echo $FILE;
+# do echo $FILE; 
 done

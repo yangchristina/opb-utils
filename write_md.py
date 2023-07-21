@@ -1,6 +1,6 @@
 import os
 import shutil
-from utils import replace_file_line, apply_indent, write_file, apply_params_to_str, string_is_numeric, insert_into_file
+from utils import replace_file_line, apply_indent, write_file, apply_params_to_str, string_is_numeric, insert_into_file, count_decimal_places
 import tempfile
 from constants import textbook_chapter_to_name, topics
 from pdf2image import convert_from_path
@@ -141,7 +141,7 @@ def num_variable_to_line_value(num: float):
         if 1900 < num < 2090:
             randomized_str = num
     else:
-        count_after_decimal = str(num)[::-1].find('.')
+        count_after_decimal = count_decimal_places(num)
         if abs(num) <= 0.5:
             range_value = round(abs(num)*2, count_after_decimal)
         else:
@@ -252,9 +252,10 @@ def write_code(exercise: dict):
                 exercise['solutions'][part_num] = '\\rightarrow'.join(split)
             lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             end_note = '' if numeric_answer is not None else '# TODO: insert correct answer here'
-            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = {numeric_answer or 0}  {end_note}")
+            decimals = count_decimal_places(numeric_answer) if numeric_answer is not None else 2
+            lines.append(f"correct_part{part_num+1}_ans = pbh.roundp({numeric_answer or 0}, decimals={decimals})  {end_note}")
+            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = correct_part{part_num+1}_ans")
             lines.append('')
-
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
     return apply_indent(lines, indent), used_by
