@@ -7,7 +7,7 @@
 1_2_data_basics_q1_7.md
 1_2_data_basics_q1_9.md
 2_1_examining_numerical_data_q2_9.md
-2_1_examining_numerical_data_q2_5.md
+!2_1_examining_numerical_data_q2_5.md
 3_5_continuous_distributions_q3_43.md
 3_5_continuous_distributions_q3_47.md
 3_5_continuous_distributions_q3_45.md

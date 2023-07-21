@@ -247,6 +247,11 @@ def extract_first_number(text: str):
     raise Exception(f'No number found in {text}')
 
 
+def split_question_by_calculate(text: str):
+    """TODO see if nltk can scan for 'one, two, and three'"""
+    pass
+
+
 def split_question_by_if(text: str):
     questions = ['']
     sentences = nltk.sent_tokenize(text)

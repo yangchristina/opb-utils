@@ -312,14 +312,19 @@ def guess_question_type(question: str):
 
     ch1_matching_type = {
         'type': 'matching',
-        'options': {
-            'option1': '"Not a variable in the study"',
-            'option2': '"Numerical and discrete variable"',
-            'option3': '"Numerical and continuous variable"',
-            'option4': '"Categorical"',
+        'options': [
+            '"Not a variable in the study"',
+            '"Numerical and discrete variable"',
+            '"Numerical and continuous variable"',
+            '"Categorical"',
             # 'option4': 'Categorical and not ordinal variable',
-        },
-        'statements': [{'value': '"Statement 1"', 'matches': 'option1' }],
+        ],
+        'statements': [
+            {'value': '"Statement 1"', 'matches': 'Not a variable in the study' },
+            {'value': '"Statement 2"', 'matches': 'Numerical and discrete variable' },
+            {'value': '"Statement 3"', 'matches': 'Numerical and continuous variable' },
+            {'value': '"Statement 4"', 'matches': 'Categorical' },
+        ],
     }
     # ADD CUSTOM SPLITS HERE, MUST BE LOWER CASE
     multi_part_direct_match = {
@@ -335,8 +340,9 @@ def guess_question_type(question: str):
         'how many numerical variables are included in the data? indicate what they are, and if they are continuous or discrete.': ch1_matching_type,
         'how many variables were recorded for each subject in the study in order to conclude these findings? state the variables and their types.': ch1_matching_type,
     }
-    if question in multi_part_direct_match:
-        return multi_part_direct_match[question]
+    for (phrase, info) in multi_part_direct_match.items():
+        if phrase in question:
+            return info
 
     split_questions = split_question_by_if(question)
     if split_questions:
