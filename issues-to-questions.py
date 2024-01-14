@@ -765,86 +765,85 @@ if __name__ == "__main__":
     # Public Web Github
     g = Github(login_or_token=GITHUB_ACCESS_TOKEN)
 
-    print('group 1', github_profiles[0:3])
-    print('group 2', github_profiles[3:])
-    ch7issues = read_all_chapter("7", github_profiles[0:3])
-    ch8issues = read_all_chapter("8", github_profiles[3:])
-    all_issues = ch7issues + ch8issues
+    # ch7issues = read_all_chapter("7", github_profiles[0:3])
+    # ch8issues = read_all_chapter("8", github_profiles[3:])
+    # all_issues = ch7issues + ch8issues
     # read_chapter("7", [{"question_number": i, 'issue_title': 'TODO'} for i in range(1,10,2)])
 
     # Github Enterprise with custom hostname
     # g = Github(base_url="https://{hostname}/api/v3", auth=auth)
 
     repo = g.get_repo("open-resources/instructor_stats_bank")
-    body = "This question can be found in the GitHub repo for the OpenIntro Stats textbook. For example, here is a link to one sample chapter: https://github.com/OpenIntroStat/openintro-statistics/blob/master/ch_distributions/TeX/ch_distributions.tex"
-    for i, issue in enumerate(all_issues[33:]):
-        try:
-            print('issue', issue)
-            if "assignee" in issue:
-                repo.create_issue(title=issue["issue_title"], body=body, assignee=issue["assignee"])
-            else:
-                repo.create_issue(title=issue["issue_title"], body=body)
-        except Exception as e:
-            print("Q", i)
-            print('Error creating issue', issue)
-            print(e)
-            time.sleep(5)
+    # for i, issue in enumerate(all_issues[33:]):
+    #     try:
+    #         print('issue', issue)
+    #         if "assignee" in issue:
+    #             repo.create_issue(title=issue["issue_title"], body=body, assignee=issue["assignee"])
+    #         else:
+    #             repo.create_issue(title=issue["issue_title"], body=body)
+    #     except Exception as e:
+    #         print("Q", i)
+    #         print('Error creating issue', issue)
+    #         print(e)
+    #         time.sleep(5)
+    #         continue
+
+    if GITHUB_USERNAME:
+        issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+    else:
+        issues = repo.get_issues(state="open")
+    print(issues.totalCount)
+
+    questions_by_chapter = {}
+    sections_by_chapter = {}
+    for item in issues:
+        if not item.title.startswith('openstat_Q'):
+            continue
+        if 'Q' not in item.title or '.' not in item.title:
+            continue
+        # print('title', item.title)
+        # print('issue number', item.number)
+        if item.pull_request:
             continue
 
-    # if GITHUB_USERNAME:
-    #     issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
-    # else:
-    #     issues = repo.get_issues(state="open")
-    # print(issues.totalCount)
-
-    # questions_by_chapter = {}
-    # sections_by_chapter = {}
-    # for item in issues:
-    #     if 'Q' not in item.title or '.' not in item.title:
-    #         continue
-    #     # print('title', item.title)
-    #     # print('issue number', item.number)
-    #     if item.pull_request:
-    #         continue
-
-    #     # print(item.comments)
-    #     with open('issues.txt', 'a') as f:
-    #         f.write(f'{item.title}={item.number}\n')
+        # print(item.comments)
+        with open('issues.txt', 'a') as f:
+            f.write(f'{item.title}={item.number}\n')
 
 
-    #     tmp_filepath = str_to_filename(item.title, '_')
-    #     dir_path = 'info/' + tmp_filepath
-    #     if not os.path.exists('info'):
-    #         os.mkdir('info')
-    #     if not os.path.exists(dir_path):
-    #         os.mkdir(dir_path)
+        tmp_filepath = str_to_filename(item.title, '_')
+        dir_path = 'info/' + tmp_filepath
+        if not os.path.exists('info'):
+            os.mkdir('info')
+        if not os.path.exists(dir_path):
+            os.mkdir(dir_path)
 
 
-    #     if not GITHUB_USERNAME and len(item.assignees) > 0 and item.assignees[0].login.strip() == 'yangchristina':
-    #         continue
+        if not GITHUB_USERNAME and len(item.assignees) > 0 and item.assignees[0].login.strip() == 'yangchristina':
+            continue
 
-    #     with open(f'{dir_path}/issue_number.txt', 'w') as f:
-    #         f.write(str(item.number))
-    #     with open(f'{dir_path}/assign.txt', 'w') as f:
-    #         if len(item.assignees) > 0:
-    #             f.write(','.join([a.login.strip() for a in item.assignees]))
-    #         else:
-    #             f.write('')
+        with open(f'{dir_path}/issue_number.txt', 'w') as f:
+            f.write(str(item.number))
+        with open(f'{dir_path}/assign.txt', 'w') as f:
+            if len(item.assignees) > 0:
+                f.write(','.join([a.login.strip() for a in item.assignees]))
+            else:
+                f.write('')
 
-    #     question_info = item.title.split("Q")[-1]
-    #     chapter, question = question_info.split('.')
-    #     chapter = chapter.strip()
-    #     question = int(re_rstrip(question.split(' ')[0].strip(), '\D'))
-    #     print('chapter', chapter, 'question', question)
-
-
-    #     if chapter not in questions_by_chapter:
-    #         questions_by_chapter[chapter] = []
-    #     questions_by_chapter[chapter].append({"question_number": question, 'issue_title': item.title})
+        question_info = item.title.split("Q")[-1]
+        chapter, question = question_info.split('.')
+        chapter = chapter.strip()
+        question = int(re_rstrip(question.split(' ')[0].strip(), '\D'))
+        # print('chapter', chapter, 'question', question)
 
 
-    # for (chapter, questions) in questions_by_chapter.items():
-    #     read_chapter(chapter, uniq_by(questions, lambda x: x['question_number']))
+        if chapter not in questions_by_chapter:
+            questions_by_chapter[chapter] = []
+        questions_by_chapter[chapter].append({"question_number": question, 'issue_title': item.title})
+
+
+    for (chapter, questions) in questions_by_chapter.items():
+        read_chapter(chapter, uniq_by(questions, lambda x: x['question_number']))
 
 
 

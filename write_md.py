@@ -170,8 +170,7 @@ def write_code(exercise: dict):
             used = used_by[num] if (num in used_by) else ''
             if not used:
                 used_by[num] = var_name
-
-            line = f"{var_name} = {num_variable_to_line_value(num)}" if not used else f"{key}_num{i+1} = {used}"
+            line = f"{var_name} = {num_variable_to_line_value(num)}" if not used else f"{var_name} = {used}"
             lines.append(line)
         else:
             lines.append(f"{var_name} = {value}")
@@ -363,7 +362,21 @@ def write_md(exercise):
 
         print("\nPATH", path)
         print()
-        raise Exception("PARTS AND SOLUTIONS LENGTHS DON'T MATCH")
+        # raise Exception("PARTS AND SOLUTIONS LENGTHS DON'T MATCH")
+        # join until length matches
+        # if len(exercise['parts']) > len(solutions):
+        #     while len(exercise['parts']) > len(solutions):
+        #         first = exercise['parts'][0]
+        #         exercise['parts'] = exercise['parts'][1:]
+        #         exercise['parts'][0]['question'] = first['question'] + ' ' + exercise['parts'][0]['question']
+        #         solutions.append('')
+
+        if len(solutions) > len(exercise['parts']):
+            while len(solutions) > len(exercise['parts']):
+                solutions[1] = solutions[0] + '\n' + solutions[1]
+                solutions = solutions[1:]
+        else:
+            raise Exception("PARTS AND SOLUTIONS LENGTHS DON'T MATCH")
     for i, part in enumerate(exercise['parts']):
         lines_to_write += md_part_lines(part, i=i, params=params_dict, solution=solutions[i])
         if part['info']['type'] == 'longtext':
