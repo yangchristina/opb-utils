@@ -21,3 +21,5 @@ topics = {
     '8': 'Introduction to linear regression',
     '9': 'Multiple and logistic regression',
 }
+
+github_profiles = ['yangchristina', 'alebuiles', 'Kipkeu', 'KafkaNoNeko', 'Bluesy1']

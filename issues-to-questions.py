@@ -9,12 +9,12 @@ from table import latex_table_to_md, find_all_figures
 import pandoc
 from utils import remove_unmatched_closing, uniq_by, remove_tags, find_2nd_string, unwrap_unsupported_tags, get_between_strings, get_between_tag, string_is_numeric, numbers_to_latex_equations, extract_first_number, split_question_by_if, split_question_by_question_mark, split_question_by_and, split_question_by_sentence, re_rstrip
 import tempfile
-from constants import textbook_chapter_to_name
+from constants import textbook_chapter_to_name, github_profiles
 import re
 from dotenv import load_dotenv
 from write_md import write_md
 load_dotenv()
-
+import time
 
 # region settings
 TEXTBOOK_PATH = os.environ.get("TEXTBOOK_PATH")
@@ -661,14 +661,55 @@ def get_exercises(chapter: str, section: str, questions, solutions_dict):
     # print(len(exercises))
     return exercises
 
+def get_chapter_counts(chapter: str):
+    chapter_info = read_chapter_info(chapter)
+    all_sections = chapter_info['inputs']
+    exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
+    summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
+    return all_sections, exercise_counts, summed_counts
 
-def read_chapter(chapter: str, questions: list):
+def read_all_chapter(chapter: str, people: list[str]):
+    github_profiles
+    chapter_info = read_chapter_info(chapter)
+    all_sections = chapter_info['inputs']
+    exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
+    total_exercises = sum(exercise_counts)
+    questions = [{"question_number": i, 'issue_title': f'openstat_Q{chapter}.{i}'} for i in range(1, total_exercises+1,2)]
+    summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
+
+    for j, person in enumerate(people):
+        for i in range(7):
+            questions[j*7+i]['assignee'] = person
+
+    # title = chapter_info['title']
+    sections = {}
+    for question in questions:
+        section_index = bisect.bisect_left(summed_counts, question['question_number'])
+        section = all_sections[section_index-1]
+        if section not in sections:
+            sections[section] = []
+        sections[section].append(question)
+
+    issues_list = [x for item in list(sections.values()) for x in item]
+    print("SECTIONS", json.dumps(issues_list, indent=2))
+    print("NUM SECTIONS", len(sections))
+    print("NUM QUESTIONS", len(questions))
+    return issues_list
+
+
+def read_chapter(chapter: str, questions: list): # questions is int list
     questions.sort(key=lambda x: x['question_number'])
     chapter_info = read_chapter_info(chapter)
     all_sections = chapter_info['inputs']
     exercise_counts = [count_exercises(chapter, cur_section) for cur_section in all_sections]
     summed_counts = [sum(exercise_counts[:i]) for i in range(len(exercise_counts))]
     title = chapter_info['title']
+    print("exercise_counts", exercise_counts)
+    print("summed_counts", summed_counts)
+    print("all_sections", all_sections)
+    print("chapter_info", chapter_info)
+    print("title", title)
+    print("questions", questions)
     # return
     sections = {}
     for question in questions:
@@ -690,10 +731,6 @@ def read_chapter(chapter: str, questions: list):
         print("SECTION", section, "count", len(questions))
         print([question['question_number'] for question in questions])
         results += get_exercises(chapter, section, questions, question_solutions_dict)
-
-    if chapter == '4':
-        print("CHAPTER 4")
-        print("num exercises", len(results))
 
     with open('completed.txt', 'r') as reader:
         lines = reader.readlines()
@@ -720,67 +757,100 @@ def read_chapter(chapter: str, questions: list):
 
 if __name__ == "__main__":
     print('hi')
+
+    # read_chapter("7")
     with open('issues.txt', 'w') as f:
         f.write('')
     # latex_to_markdown('')
     # Public Web Github
     g = Github(login_or_token=GITHUB_ACCESS_TOKEN)
 
+    print('group 1', github_profiles[0:3])
+    print('group 2', github_profiles[3:])
+    ch7issues = read_all_chapter("7", github_profiles[0:3])
+    ch8issues = read_all_chapter("8", github_profiles[3:])
+    all_issues = ch7issues + ch8issues
+    # read_chapter("7", [{"question_number": i, 'issue_title': 'TODO'} for i in range(1,10,2)])
+
     # Github Enterprise with custom hostname
     # g = Github(base_url="https://{hostname}/api/v3", auth=auth)
 
     repo = g.get_repo("open-resources/instructor_stats_bank")
-
-    if GITHUB_USERNAME:
-        issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
-    else:
-        issues = repo.get_issues(state="open")
-    print(issues.totalCount)
-
-    questions_by_chapter = {}
-    sections_by_chapter = {}
-    for item in issues:
-        if 'Q' not in item.title or '.' not in item.title:
-            continue
-        # print('title', item.title)
-        # print('issue number', item.number)
-        if item.pull_request:
-            continue
-
-        # print(item.comments)
-        with open('issues.txt', 'a') as f:
-            f.write(f'{item.title}={item.number}\n')
-
-
-        tmp_filepath = str_to_filename(item.title, '_')
-        dir_path = 'info/' + tmp_filepath
-        if not os.path.exists('info'):
-            os.mkdir('info')
-        if not os.path.exists(dir_path):
-            os.mkdir(dir_path)
-
-
-        if not GITHUB_USERNAME and len(item.assignees) > 0 and item.assignees[0].login.strip() == 'yangchristina':
-            continue
-
-        with open(f'{dir_path}/issue_number.txt', 'w') as f:
-            f.write(str(item.number))
-        with open(f'{dir_path}/assign.txt', 'w') as f:
-            if len(item.assignees) > 0:
-                f.write(','.join([a.login.strip() for a in item.assignees]))
+    body = "This question can be found in the GitHub repo for the OpenIntro Stats textbook. For example, here is a link to one sample chapter: https://github.com/OpenIntroStat/openintro-statistics/blob/master/ch_distributions/TeX/ch_distributions.tex"
+    for i, issue in enumerate(all_issues[33:]):
+        try:
+            print('issue', issue)
+            if "assignee" in issue:
+                repo.create_issue(title=issue["issue_title"], body=body, assignee=issue["assignee"])
             else:
-                f.write('')
+                repo.create_issue(title=issue["issue_title"], body=body)
+        except Exception as e:
+            print("Q", i)
+            print('Error creating issue', issue)
+            print(e)
+            time.sleep(5)
+            continue
 
-        question_info = item.title.split("Q")[-1]
-        chapter, question = question_info.split('.')
-        chapter = chapter.strip()
-        question = int(re_rstrip(question.split(' ')[0].strip(), '\D'))
-        # print('chapter', chapter, 'question', question)
+    # if GITHUB_USERNAME:
+    #     issues = repo.get_issues(state="open", assignee=GITHUB_USERNAME)
+    # else:
+    #     issues = repo.get_issues(state="open")
+    # print(issues.totalCount)
+
+    # questions_by_chapter = {}
+    # sections_by_chapter = {}
+    # for item in issues:
+    #     if 'Q' not in item.title or '.' not in item.title:
+    #         continue
+    #     # print('title', item.title)
+    #     # print('issue number', item.number)
+    #     if item.pull_request:
+    #         continue
+
+    #     # print(item.comments)
+    #     with open('issues.txt', 'a') as f:
+    #         f.write(f'{item.title}={item.number}\n')
 
 
-        if chapter not in questions_by_chapter:
-            questions_by_chapter[chapter] = []
-        questions_by_chapter[chapter].append({"question_number": question, 'issue_title': item.title})
+    #     tmp_filepath = str_to_filename(item.title, '_')
+    #     dir_path = 'info/' + tmp_filepath
+    #     if not os.path.exists('info'):
+    #         os.mkdir('info')
+    #     if not os.path.exists(dir_path):
+    #         os.mkdir(dir_path)
+
+
+    #     if not GITHUB_USERNAME and len(item.assignees) > 0 and item.assignees[0].login.strip() == 'yangchristina':
+    #         continue
+
+    #     with open(f'{dir_path}/issue_number.txt', 'w') as f:
+    #         f.write(str(item.number))
+    #     with open(f'{dir_path}/assign.txt', 'w') as f:
+    #         if len(item.assignees) > 0:
+    #             f.write(','.join([a.login.strip() for a in item.assignees]))
+    #         else:
+    #             f.write('')
+
+    #     question_info = item.title.split("Q")[-1]
+    #     chapter, question = question_info.split('.')
+    #     chapter = chapter.strip()
+    #     question = int(re_rstrip(question.split(' ')[0].strip(), '\D'))
+    #     print('chapter', chapter, 'question', question)
+
+
+    #     if chapter not in questions_by_chapter:
+    #         questions_by_chapter[chapter] = []
+    #     questions_by_chapter[chapter].append({"question_number": question, 'issue_title': item.title})
+
+
+    # for (chapter, questions) in questions_by_chapter.items():
+    #     read_chapter(chapter, uniq_by(questions, lambda x: x['question_number']))
+
+
+
+
+
+# ARCHIVE
 
         # if item.title.startswith('Chapter Exercises'):
         # index = item.title.find('q')
@@ -790,8 +860,6 @@ if __name__ == "__main__":
         #     section_name = '_'.join(split[1:-1]).lower()
         #     section_name = str_to_filename(section_name)
         #     question = int(split[-1][1:].split('.')[-1])
-
-
         # if chapter not in sections_by_chapter:
         #     sections_by_chapter[chapter] = {}
         # if section_name not in sections_by_chapter[chapter]:
@@ -801,9 +869,6 @@ if __name__ == "__main__":
     # print('\nquestions_by_chapter\n')
     # print(questions_by_chapter)
     # print('questions_by_chapter', len(questions_by_chapter['4']))
-    for (chapter, questions) in questions_by_chapter.items():
-        read_chapter(chapter, uniq_by(questions, lambda x: x['question_number']))
-
     # should_split_question("blue. fish? are cool, today; today is a good day.")
     # for (chapter, sections) in sections_by_chapter.items():
     #     read_chapter(chapter, sections)
