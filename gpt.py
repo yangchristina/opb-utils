@@ -8,13 +8,18 @@ client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
 
-def ask_number_code(question: str, answer: str | float | int) -> str:
+def ask_number_code(question: str, answer: str | float | int, additional_info = "") -> str:
+    extra_info = f"Additional context: {additional_info}" if additional_info else ""
     chat_completion = client.chat.completions.create(
         messages=[
             {
                 "role": "user",
                 "content": f"""I am creating a number-input question. The question is: "{question}"
-                The correct answer is "{answer}". Write me the python code to solve the question. Use variables when possible.
+
+                {extra_info}
+
+                The correct answer is "{answer}".
+                Write me the python code to solve the question. Use variables when possible.
                 Answer with only the python code.""",
             }
         ],

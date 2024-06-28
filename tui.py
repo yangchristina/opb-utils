@@ -101,6 +101,7 @@ question_types = {
     'checkbox': {
     },
     'matrix': {
+        "type": "matrix-component-input"
     },
     'matching': {
     },
@@ -118,7 +119,7 @@ question_types = {
 def split_comma(text: str) -> list:
     return [x.strip() for x in text.split(",")]
 
-def other_asks(part: dict, solution: str):
+def other_asks(part: dict, solution: str, exercise: dict = None):
     key = part["type"]
     question = part["question"]
     info = deepcopy(question_types[key])
@@ -138,7 +139,7 @@ def other_asks(part: dict, solution: str):
         case "true-false":
             info["choices"] = generate_true_false_choices(solution)
             info["fixed-order"] = "true"
-        case "number-input":
+        case "number-input" | "matrix":
             digits = ask_int("Digits")
             info["digits"] = digits
             prefix = questionary.text(f"Prefix", default="$p=$").ask()
@@ -147,7 +148,7 @@ def other_asks(part: dict, solution: str):
             suffix = questionary.text(f"Suffix").ask()
             if suffix:
                 info["suffix"] = suffix
-            info["code"] = ask_number_code(question, solution)
+            info["code"] = ask_number_code(question, solution, exercise["description"])
         case "matching":
             info = {**info, **ch1_matching_type}
     part["info"] = info
@@ -227,6 +228,7 @@ def start_tui():
                     "table",
                     "image",
                     "graph",
+                    "matrix",
                 ]).ask()
 
         if "image" in exercise["extras"]:
@@ -252,6 +254,14 @@ def start_tui():
                 tables.append(table)
                 # [["a", "b", "c"], ["x", "1"]]
             exercise["tables"] = tables
+        if "matrix" in exercise["extras"]:
+            # if has_matrix:
+            #   result += ['<pl-matrix-latex params-name="matrixA"></pl-matrix-latex>']
+            num_tables = ask_int("How many matrices", default=1)
+            matrices = []
+            for i in range(num_tables):
+                matrices.append(questionary.text(f"Matrix {i+1}? ex. [1,2,3]").ask())
+            exercise["matrices"] = matrices
         if "graph" in exercise["extras"]:
             num_graphs = ask_int("How many graphs", default=1 if "graphs" not in exercise else len(exercise["graphs"]))
             exercise["graphs"] = [] if "graphs" not in exercise else exercise["graphs"]
@@ -325,7 +335,7 @@ def start_tui():
                 "desc": desc,
                 "parts": set_default(exercise, "parts", [])
             }
-            solutions = exercise["solutions"] or [part["solution"] for part in variant["parts"]]
+            solutions = exercise["solutions"] if "solutions" in exercise else [part["solution"] for part in variant["parts"]]
             # solutions = [] if "solutions" not in exercise else exercise["solutions"]
             print("solutions", solutions)
             # parts_start_at = 0 if "parts" not in exercise else len(exercise["parts"])
@@ -347,7 +357,7 @@ def start_tui():
                         default=question_type_from_solution(part["solution"])
                         ).ask()  # returns value of selection
                 if "info" not in part:
-                    other_asks(part, part["solution"])
+                    other_asks(part, part["solution"], exercise=exercise)
 
                 if p < len(variant["parts"]):
                     variant["parts"][p] = part
