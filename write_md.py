@@ -622,6 +622,8 @@ def write_md_new(exercise):
         all_imports.add("import io")
         all_imports.add("import numpy as np")
         all_imports.add("from matplotlib import cbook")
+    if "matrices" in exercise:
+        all_imports.add("import prairielearn as pl")
 
     imports_string = "\n        ".join(list(all_imports))
     lines_to_write.append(f"server:\n  imports: |\n        {imports_string}")

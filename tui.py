@@ -149,6 +149,10 @@ def other_asks(part: dict, solution: str, exercise: dict = None):
             if suffix:
                 info["suffix"] = suffix
             info["code"] = ask_number_code(question, solution, exercise["description"])
+            if key == "matrix" and exercise is not None:
+                if "imports" not in exercise:
+                    exercise["imports"] = []
+                exercise["imports"].append("import prairielearn as pl")
         case "matching":
             info = {**info, **ch1_matching_type}
     part["info"] = info
@@ -368,16 +372,16 @@ def start_tui():
 
         variant = random.choice(variants)
         exercise = {
+            "num_variables": {},
+            "imports": [],
             **exercise,
             "title": title,
             "description": variant["desc"],
             "parts": variant["parts"],
             "chapter": chapter,
             "path": f"{branch_name}.md",
-            "num_variables": {},
             "variables": variables,
             "solutions": solutions,
-            "imports": [],
             "finished": True,
         }
         write_json(exercise)
