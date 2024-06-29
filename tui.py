@@ -114,10 +114,12 @@ question_types = {
     },
     'file-upload': {
     },
+    'integer-input': {},
+    'symbolic-input': {},
 }
 
 def split_comma(text: str) -> list:
-    return [x.strip() for x in text.split(",")]
+    return [x.strip() for x in text.split(",") if x.strip()]
 
 def other_asks(part: dict, solution: str, exercise: dict = None):
     key = part["type"]
@@ -154,7 +156,33 @@ def other_asks(part: dict, solution: str, exercise: dict = None):
                     exercise["imports"] = []
                 exercise["imports"].append("import prairielearn as pl")
         case "matching":
-            info = {**info, **ch1_matching_type}
+            statements_str = questionary.text(f"List the statements, comma separated").ask()
+            statements = split_comma(statements_str)
+            info["statements"] = []
+            for statement in statements:
+                if statement:
+                    info["statements"].append({"value": statement, 'matches': questionary.text(f"{statement} matches").ask()})
+            extra_options_str = questionary.text(f"List the extra (unused) options, comma separated").ask()
+            info["options"] = split_comma(extra_options_str)
+        case "integer-input":
+            prefix = questionary.text(f"Prefix", default="$p=$").ask()
+            if prefix:
+                info["label"] = prefix
+        case "symbolic-input":
+            prefix = questionary.text(f"Prefix", default="$p=$").ask()
+            if prefix:
+                info["label"] = prefix
+            custom_functions = questionary.text(f'custom_functions (ex. "N") (optional)').ask()
+            if custom_functions:
+                info["custom_functions"] = custom_functions
+            variables_str = questionary.text(f'variables (ex. "mu, sigma")').ask()
+            info["variables"] = variables_str
+            if "imports" not in exercise:
+                exercise["imports"] = []
+            exercise["imports"].append("import prairielearn as pl")
+            exercise["imports"].append("from sympy import sp")
+        case _:
+            print("No other asks for", key)
     part["info"] = info
 
 def extract_variables(text: str, variables: dict) -> list:

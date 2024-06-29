@@ -7,7 +7,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from pdf2image import convert_from_path
 
-from constants import textbook_chapter_to_name, topics
+from constants import textbook_chapter_to_name, topics, topics_openstax
 from similarity import text_similarity
 from table import find_all_figures
 from utils import (
@@ -35,7 +35,7 @@ TAB = '  '
 def md_part_lines(part, i, params=None, solution=None):
     q_type = part['info']['type']
     answer_section = ''
-    if q_type == 'number-input':
+    if q_type == 'number-input' or q_type == 'integer-input':
         answer_section ='Please enter a numeric value in.\n'
     elif q_type == 'multiple-choice' or q_type == 'dropdown':
         choices = part['info']['choices']
@@ -65,7 +65,7 @@ def md_part_lines(part, i, params=None, solution=None):
 
     return result + ['']
 
-CUSTOM_KEYS=["type", "choices", "code"]
+CUSTOM_KEYS=["type", "choices", "code", "options", "statements"]
 def get_pl_customizations(info: dict = {}, index: int = 0):
     type = info['type']
     pl_indent = '    '
@@ -101,6 +101,8 @@ def get_pl_customizations(info: dict = {}, index: int = 0):
         customizations = {**customizations, "file-names": '"file.png, file.jpg, file.pdf, filename space.png"'}
     elif type == 'matching':
         customizations = {**customizations, "weight": 1, "blank": "true"}
+    elif type == 'integer-input':
+        customizations = {**customizations, "allow-blank": "false"}
     customizations = {**customizations, **info}
     lines = []
     for (key, val) in customizations.items():
@@ -271,14 +273,14 @@ def write_code(exercise: dict):
                 lines.append('')
             lines.append('')
         if part['info']['type'] == 'matching':
-            for (key, val) in part['info']['options'].items():
-                lines += [f'data2["params"]["part{part_num+1}"]["{key}"]["value"] = {val}']
+            for i, value in enumerate(part['info']['options']):
+                lines += [f'data2["params"]["part{part_num+1}"]["option{i}"]["value"] = {val}']
             lines.append('')
             for s_num, statement_info in enumerate(part['info']['statements']):
                 lines += [f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["value"] = {statement_info["value"]}']
                 lines += [f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["matches"] = "{statement_info["matches"]}"']
             lines.append('')
-        if part['info']['type'] == 'number-input':
+        if part['info']['type'] == 'number-input' or part['info']['type'] == 'integer-input':
             numeric_answer = None
             words = exercise['solutions'][part_num].strip().split(' ')
             if len(words) == 1 and string_is_numeric(exercise['solutions'][part_num].replace(',', '').strip().strip('%')):
@@ -308,6 +310,13 @@ def write_code(exercise: dict):
             # data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))
             # lines.append(f'data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))')
             lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = pl.to_json(matrix_ans{part_num+1})")
+        if part['info']['type'] == 'symbolic-input':
+            if "custom_functions" in part['info']:
+                for func in part['info']["custom_functions"]:
+                    lines.append(f'{func} = sp.Function("{func}")')
+                    lines.append(f'with sp.evaluate(False):')
+                    lines.append(TAB + f'part{part_num+1}_ans = {func}(...)')
+                lines.append(f'data2["correct_answers"]["part{part_num+1}_ans"] = pl.to_json(part{part_num+1}_ans)')
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
     return apply_indent(lines, indent), used_by
@@ -356,9 +365,9 @@ def write_graph(exercise: dict):
             lines.append(f"{ax}.hist(data{suffix}, bins=num_bins{suffix}, edgecolor='black')")
             lines.append(f"{ax}.grid(True)")
         elif graph_type == "bar":
-            raise Exception("Bar plots not supported yet")
+            print("Bar plots not supported yet")
         elif graph_type == "line":
-            raise Exception("Line plots not supported yet")
+            print("Line plots not supported yet")
         elif graph_type == "box plot":
             data = graph["data"]
             if not isinstance(data[0], list):
@@ -398,7 +407,7 @@ def write_graph(exercise: dict):
             # lines.append('for i, mean in enumerate(new_means):')
             # lines.append(f"{TAB}{ax}.text(i + 1, mean, f'{{mean:.2f}}', color='black', fontsize=9, ha='center', va='bottom')")
         else:
-            raise Exception(f"Graph type {graph_type} not supported")
+            print(f"Graph type {graph_type} not supported")
         if "title" in graph:
             lines.append(f"{ax}.set_title('{variables['title']}')")
         if "x_label" in variables:
@@ -602,7 +611,7 @@ def write_md_new(exercise):
     shutil.copyfile('q11_multi-part.md', path)
 
     replace_file_line(path, 1, f"title: {exercise['title']}")
-    replace_file_line(path, 2, f"topic: {topics[chapter]}")
+    replace_file_line(path, 2, f"topic: {topics_openstax[chapter]}")
     replace_file_line(path, 3, f"author: {MY_NAME}")
     replace_file_line(path, 21, f"tags:")
     replace_file_line(path, 22, f"- {MY_INITIALS}")
