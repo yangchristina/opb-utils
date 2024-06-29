@@ -10,6 +10,18 @@ textbook_chapter_to_name = {
     '9': 'ch_regr_mult_and_log',
 }
 
+topics_openstax = {
+    '1': 'Introduction to Data',
+    '2': 'Summarizing Data',
+    '3': 'Probability',
+    '4': 'Distributions of random variables',
+    '5': 'Foundations for inference',
+    '6': 'Inference for categorical data',
+    '7': 'Inference for numerical data',
+    '8': 'Foundations for inference',
+    '9': 'Multiple and logistic regression',
+}
+
 topics = {
     '1': 'Introduction to Data',
     '2': 'Summarizing Data',
