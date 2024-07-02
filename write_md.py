@@ -9,7 +9,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from pdf2image import convert_from_path
 
-from constants import textbook_chapter_to_name, topics
+from constants import textbook_chapter_to_name, topics, topics_openstax
 from similarity import text_similarity
 from table import find_all_figures
 from utils import (
@@ -36,7 +36,7 @@ TAB = '  '
 def md_part_lines(part, i, params=None, solution=None):
     q_type = part['info']['type']
     answer_section = ''
-    if q_type == 'number-input':
+    if q_type == 'number-input' or q_type == 'integer-input':
         answer_section ='Please enter a numeric value in.\n'
     elif q_type == 'multiple-choice' or q_type == 'dropdown':
         choices = part['info']['choices']
@@ -55,7 +55,7 @@ def md_part_lines(part, i, params=None, solution=None):
         '### Answer Section\n',
         answer_section, '',
         # answer_section2,
-        ]
+    ]
 
     if solution:
         if params:
@@ -247,6 +247,11 @@ def write_code(exercise: dict):
             lines.append(f"table{i+1} = {table['matrix']}")
             lines.append(f"data2['params']['table{i+1}'] = pbh.create_html_table(table{i+1}, width='550px', first_row_is_header={table['first_row_is_header']}, first_col_is_header={table['first_col_is_header']},)")
 
+    if "matrices" in exercise:
+        for (i, matrix) in enumerate(exercise["matrices"]):
+            lines.append(f"matrix_ans{i+1} = {matrix['matrix']}")
+            lines.append(f"data2['params']['matrix{i+1}'] = pl.to_json(np.array([matrix_ans{i+1}]))")
+
     lines.append('')
     lines.append('# store the variables in the dictionary "params"')
     for (key, values) in num_variables.items():
@@ -271,23 +276,25 @@ def write_code(exercise: dict):
             move_figure(exercise['chapter'], a, exercise['path'])
 
     for part_num, part in enumerate(exercise['parts']):
+        lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
+        if "code" in part['info']:
+            lines.append("# GPT generated solution")
+            lines.extend(part['info']['code'].splitlines())
         if part['info']['type'] == 'multiple-choice' or part['info']['type'] == 'dropdown':
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             for choice_num, choice in enumerate(part['info']['choices']):
                 for (key, val) in choice.items():
                     lines += [f"data2['params']['part{part_num+1}']['ans{choice_num+1}']['{key}'] = {val}"]
                 lines.append('')
             lines.append('')
         if part['info']['type'] == 'matching':
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
-            for (key, val) in part['info']['options'].items():
-                lines += [f'data2["params"]["part{part_num+1}"]["{key}"]["value"] = {val}']
+            for i, value in enumerate(part['info']['options']):
+                lines += [f'data2["params"]["part{part_num+1}"]["option{i}"]["value"] = {val}']
             lines.append('')
             for s_num, statement_info in enumerate(part['info']['statements']):
                 lines += [f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["value"] = {statement_info["value"]}']
                 lines += [f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["matches"] = "{statement_info["matches"]}"']
             lines.append('')
-        if part['info']['type'] == 'number-input':
+        if part['info']['type'] == 'number-input' or part['info']['type'] == 'integer-input':
             numeric_answer = None
             words = exercise['solutions'][part_num].strip().split(' ')
             if len(words) == 1 and string_is_numeric(exercise['solutions'][part_num].replace(',', '').strip().strip('%')):
@@ -307,15 +314,23 @@ def write_code(exercise: dict):
             if len(words) > 0 and string_is_numeric(words[-1].replace(',', '').strip()):
                 numeric_answer = float(words[-1].replace(',', '').strip())
                 exercise['solutions'][part_num] = exercise['solutions'][part_num].replace(words[-1], f'{{{{ correct_answers.part{part_num+1}_ans }}}}')
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             end_note = '' if numeric_answer is not None else f'# TODO: insert correct answer here'
             decimals = count_decimal_places(numeric_answer) if numeric_answer is not None else 2
-            if "code" in part['info']:
-                lines.append("# GPT generated solution")
-                lines.extend(part['info']['code'].splitlines())
             lines.append(f"correct_part{part_num+1}_ans = {numeric_answer or ' '.join(words)}  {end_note}")
             lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = pbh.roundp(correct_part{part_num+1}_ans, decimals={decimals})")
             lines.append('')
+        if part['info']['type'] == 'matrix-component-input':
+            lines.append(f"data2['params']['part{part_num+1}']['ans1']['value'] = correct_part{part_num+1}_ans")
+            # data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))
+            # lines.append(f'data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))')
+            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = pl.to_json(matrix_ans{part_num+1})")
+        if part['info']['type'] == 'symbolic-input':
+            if "custom_functions" in part['info']:
+                for func in part['info']["custom_functions"]:
+                    lines.append(f'{func} = sp.Function("{func}")')
+                    lines.append(f'with sp.evaluate(False):')
+                    lines.append(TAB + f'part{part_num+1}_ans = {func}(...)')
+                lines.append(f'data2["correct_answers"]["part{part_num+1}_ans"] = pl.to_json(part{part_num+1}_ans)')
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
     return apply_indent(lines, indent), used_by
@@ -364,9 +379,9 @@ def write_graph(exercise: dict):
             lines.append(f"{ax}.hist(data{suffix}, bins=num_bins{suffix}, edgecolor='black')")
             lines.append(f"{ax}.grid(True)")
         elif graph_type == "bar":
-            raise Exception("Bar plots not supported yet")
+            print("Bar plots not supported yet")
         elif graph_type == "line":
-            raise Exception("Line plots not supported yet")
+            print("Line plots not supported yet")
         elif graph_type == "box plot":
             data = graph["data"]
             if not isinstance(data[0], list):
@@ -406,7 +421,7 @@ def write_graph(exercise: dict):
             # lines.append('for i, mean in enumerate(new_means):')
             # lines.append(f"{TAB}{ax}.text(i + 1, mean, f'{{mean:.2f}}', color='black', fontsize=9, ha='center', va='bottom')")
         else:
-            raise Exception(f"Graph type {graph_type} not supported")
+            print(f"Graph type {graph_type} not supported")
         if "title" in graph:
             lines.append(f"{ax}.set_title('{variables['title']}')")
         if "x_label" in variables:
@@ -586,12 +601,14 @@ def display_extras(exercise):
             for t, _ in enumerate(tables, start=1):
                 lines_to_write.append(f"{{{{{{ params.table{t}}}}}}}")
             # lines_to_write.append(f"data2['params']['table'] = {table}")
-        elif extra == "image":
-            pass  # handled in assets
-        elif extra == "graph":
-            lines_to_write.append(
-                '<pl-figure file-name="figure 1.png" type="dynamic" width="500px"></pl-figure>'
-            )
+        elif extra == 'image':
+            pass # handled in assets
+        elif extra == 'graph':
+            lines_to_write.append('<pl-figure file-name="figure 1.png" type="dynamic" width="500px"></pl-figure>')
+        elif extra == 'matrix':
+            matrices = exercise['matrices']
+            for t, matrix in enumerate(matrices):
+                lines_to_write.append(f'<pl-matrix-latex params-name="matrix{t+1}"></pl-matrix-latex>')
     if len(lines_to_write) > 0:
         lines_to_write.append("")
     return lines_to_write
@@ -632,6 +649,8 @@ def write_md_new(exercise: dict):
         all_imports.add("import io")
         all_imports.add("import numpy as np")
         all_imports.add("from matplotlib import cbook")
+    if "matrices" in exercise:
+        all_imports.add("import prairielearn as pl")
 
     template_items["imports"] = "\n".join(list(all_imports))
 

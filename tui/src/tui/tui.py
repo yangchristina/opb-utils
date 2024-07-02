@@ -93,11 +93,13 @@ QUESTION_TYPES = {
     "longtext": {},
     "dropdown": {},
     "checkbox": {},
-    "matrix": {},
+    "matrix": { "type": "matrix-component-input" },
     "matching": {},
     "true-false": {"type": "multiple-choice"},
     "yes-no": {"type": "multiple-choice", "choices": generate_yes_no_choices()},
     "file-upload": {},
+    "integer-input": {},
+    "symbolic-input": {},
 }
 
 
@@ -105,7 +107,7 @@ def split_comma(text: str) -> list[str]:
     return [x.strip() for x in text.split(",")]
 
 
-def other_asks(part: dict, solution: str, use_gpt: bool):
+def other_asks(part: dict, solution: str, use_gpt: bool, exercise: dict = None):
     key = part["type"]
     question = part["question"]
     info = deepcopy(QUESTION_TYPES[key])
@@ -125,7 +127,7 @@ def other_asks(part: dict, solution: str, use_gpt: bool):
         case "true-false":
             info["choices"] = generate_true_false_choices(solution)
             info["fixed-order"] = "true"
-        case "number-input":
+        case "number-input" | "matrix":
             digits = ask_int("Digits")
             info["digits"] = digits
             prefix = questionary.text("Prefix", default="$p=$").ask()
@@ -140,8 +142,38 @@ def other_asks(part: dict, solution: str, use_gpt: bool):
                 info["code"] = ask_number_code(question, solution)
             else:
                 info["code"] = "..."
+            if key == "matrix" and exercise is not None:
+                if "imports" not in exercise:
+                    exercise["imports"] = []
+                exercise["imports"].append("import prairielearn as pl")
         case "matching":
-            info = {**info, **ch1_matching_type}
+            statements_str = questionary.text(f"List the statements, comma separated").ask()
+            statements = split_comma(statements_str)
+            info["statements"] = []
+            for statement in statements:
+                if statement:
+                    info["statements"].append({"value": statement, 'matches': questionary.text(f"{statement} matches").ask()})
+            extra_options_str = questionary.text(f"List the extra (unused) options, comma separated").ask()
+            info["options"] = split_comma(extra_options_str)
+        case "integer-input":
+            prefix = questionary.text(f"Prefix", default="$p=$").ask()
+            if prefix:
+                info["label"] = prefix
+        case "symbolic-input":
+            prefix = questionary.text(f"Prefix", default="$p=$").ask()
+            if prefix:
+                info["label"] = prefix
+            custom_functions = questionary.text(f'custom_functions (ex. "N") (optional)').ask()
+            if custom_functions:
+                info["custom_functions"] = custom_functions
+            variables_str = questionary.text(f'variables (ex. "mu, sigma")').ask()
+            info["variables"] = variables_str
+            if "imports" not in exercise:
+                exercise["imports"] = []
+            exercise["imports"].append("import prairielearn as pl")
+            exercise["imports"].append("from sympy import sp")
+        case _:
+            print("No other asks for", key)
     part["info"] = info
 
 
@@ -233,8 +265,8 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
                     "table",
                     "image",
                     "graph",
-                ],
-            ).ask()
+                    "matrix",
+                ]).ask()
 
         if "image" in exercise["extras"]:
             exercise["assets"] += split_comma(questionary.text("Image paths (comma separated)").ask())
@@ -257,6 +289,14 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
                 tables.append(table)
                 # [["a", "b", "c"], ["x", "1"]]
             exercise["tables"] = tables
+        if "matrix" in exercise["extras"]:
+            # if has_matrix:
+            #   result += ['<pl-matrix-latex params-name="matrixA"></pl-matrix-latex>']
+            num_tables = ask_int("How many matrices", default=1)
+            matrices = []
+            for i in range(num_tables):
+                matrices.append(questionary.text(f"Matrix {i+1}? ex. [1,2,3]").ask())
+            exercise["matrices"] = matrices
         if "graph" in exercise["extras"]:
             num_graphs = ask_int("How many graphs", default=1 if "graphs" not in exercise else len(exercise["graphs"]))
             exercise["graphs"] = exercise.get("graphs", [])
@@ -328,8 +368,11 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
 
         for i, variant in enumerate(range(num_variants)):
             print(f"{title} v{i+1}")
-            variant = {"desc": desc, "parts": set_default(exercise, "parts", [])}
-            solutions = exercise["solutions"] or [part["solution"] for part in variant["parts"]]
+            variant = {
+                "desc": desc,
+                "parts": set_default(exercise, "parts", [])
+            }
+            solutions = exercise["solutions"] if "solutions" in exercise else [part["solution"] for part in variant["parts"]]
             # solutions = [] if "solutions" not in exercise else exercise["solutions"]
             print("solutions", solutions)
             # parts_start_at = 0 if "parts" not in exercise else len(exercise["parts"])
@@ -353,7 +396,7 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
                         default=question_type_from_solution(part["solution"]),
                     ).ask()  # returns value of selection
                 if "info" not in part:
-                    other_asks(part, part["solution"], use_gpt)
+                    other_asks(part, part["solution"], use_gpt, exercise=exercise)
 
                 if p < len(variant["parts"]):
                     variant["parts"][p] = part
@@ -364,16 +407,16 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
 
         variant = random.choice(variants)
         exercise = {
+            "num_variables": {},
+            "imports": [],
             **exercise,
             "title": title,
             "description": variant["desc"],
             "parts": variant["parts"],
             "chapter": chapter,
             "path": f"{branch_name}.md",
-            "num_variables": {},
             "variables": variables,
             "solutions": solutions,
-            "imports": [],
             "finished": True,
         }
         write_json(exercise)
