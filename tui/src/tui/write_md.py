@@ -25,7 +25,7 @@ TOPICS = {
     "5": "Foundations for inference",
     "6": "Inference for categorical data",
     "7": "Inference for numerical data",
-    "8": "Introduction to linear regression",
+    "8": "Foundations for inference", # for openstax
     "9": "Multiple and logistic regression",
 }
 
@@ -60,6 +60,13 @@ def md_part_lines(part, i, params=None, solution: str | None = None):
 def get_pl_customizations(info: dict, index: int = 0):
     pl_indent = " " * 4
 
+    decdig_defaults = {
+        "comparison": "decdig",
+        "digits": 2,
+        "weight": 1,
+        "allow-blank": "false",
+        "label": "$d= $",
+    }
     match info["type"]:
         case "multiple-choice":
             customizations: dict[str, str | int] = {"weight": 1}
@@ -69,14 +76,9 @@ def get_pl_customizations(info: dict, index: int = 0):
             #     customizations["weight"] = 1
             #     customizations["allow-blank"] = "true"
             # else:
-            decdig_defaults = {
-                "comparison": "decdig",
-                "digits": 2,
-                "weight": 1,
-                "allow-blank": "false",
-                "label": "$d= $",
-            }
             customizations = decdig_defaults
+        case 'matrix-component-input':
+            customizations = { "allow-fractions": "true", **decdig_defaults}
         case "dropdown":
             customizations = {"weight": 1, "blank": "true"}
         case "checkbox":
@@ -224,6 +226,11 @@ def write_code(exercise: dict):
                 f"data2['params']['table{i+1}'] = pbh.create_html_table(table{i+1}, width='550px', first_row_is_header={table['first_row_is_header']}, first_col_is_header={table['first_col_is_header']},)"
             )
 
+    if "matrices" in exercise:
+        for (i, matrix) in enumerate(exercise["matrices"]):
+            lines.append(f"matrix_ans{i+1} = {matrix['matrix']}")
+            lines.append(f"data2['params']['matrix{i+1}'] = pl.to_json(np.array([matrix_ans{i+1}]))")
+
     lines.append("")
     lines.append('# store the variables in the dictionary "params"')
     for key, values in num_variables.items():
@@ -242,15 +249,18 @@ def write_code(exercise: dict):
         print(json.dumps(exercise["solutions"], indent=2))
 
     for part_num, part in enumerate(exercise["parts"]):
+        lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
+        if "code" in part['info']:
+            lines.append("# GPT generated solution")
+            lines.extend(part['info']['code'].splitlines())
+
         if part["info"]["type"] == "multiple-choice" or part["info"]["type"] == "dropdown":
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             for choice_num, choice in enumerate(part["info"]["choices"]):
                 for key, val in choice.items():
                     lines += [f"data2['params']['part{part_num+1}']['ans{choice_num+1}']['{key}'] = {val}"]
                 lines.append("")
             lines.append("")
         if part["info"]["type"] == "matching":
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             for key, val in part["info"]["options"].items():
                 lines += [f'data2["params"]["part{part_num+1}"]["{key}"]["value"] = {val}']
             lines.append("")
@@ -289,21 +299,22 @@ def write_code(exercise: dict):
                 exercise["solutions"][part_num] = exercise["solutions"][part_num].replace(
                     words[-1], f"{{{{ correct_answers.part{part_num+1}_ans }}}}"
                 )
-            lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
             if numeric_answer is not None:
                 end_note = ""
                 decimals = count_decimal_places(numeric_answer)
             else:
                 end_note = "# TODO: insert correct answer here"
                 decimals = 2
-            if "code" in part["info"]:
-                lines.append("# GPT generated solution")
-                lines.extend(part["info"]["code"].splitlines())
             lines.append(f"correct_part{part_num+1}_ans = {numeric_answer or ' '.join(words)}  {end_note}")
             lines.append(
                 f"data2['correct_answers']['part{part_num+1}_ans'] = pbh.roundp(correct_part{part_num+1}_ans, decimals={decimals})"
             )
             lines.append("")
+        if part['info']['type'] == 'matrix-component-input':
+            lines.append(f"data2['params']['part{part_num+1}']['ans1']['value'] = correct_part{part_num+1}_ans")
+            # data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))
+            # lines.append(f'data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))')
+            lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = pl.to_json(matrix_ans{part_num+1})")
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
     return apply_indent(lines, indent), used_by
@@ -480,6 +491,10 @@ def display_extras(exercise):
             pass  # handled in assets
         elif extra == "graph":
             lines_to_write.append('<pl-figure file-name="figure 1.png" type="dynamic" width="500px"></pl-figure>')
+        elif extra == 'matrix':
+            matrices = exercise['matrices']
+            for t, matrix in enumerate(matrices):
+                lines_to_write.append(f'<pl-matrix-latex params-name="matrix{t+1}"></pl-matrix-latex>')
     if len(lines_to_write) > 0:
         lines_to_write.append("")
     return lines_to_write
