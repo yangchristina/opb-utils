@@ -15,7 +15,7 @@ from .utils import apply_indent, apply_params_to_str, count_decimal_places, stri
 WRITE_PATH = os.environ.get("WRITE_PATH") or "./questions"
 MY_NAME = os.environ.get("MY_NAME")
 MY_INITIALS = os.environ.get("MY_INITIALS")
-CUSTOM_KEYS = ["type", "choices", "code"]
+CUSTOM_KEYS = ["type", "choices", "code", "options", "statements"]
 TAB = " " * 2
 TOPICS = {
     "1": "Introduction to Data",
@@ -33,7 +33,7 @@ TOPICS = {
 def md_part_lines(part, i, params=None, solution: str | None = None):
     q_type = part["info"]["type"]
     answer_section = ""
-    if q_type == "number-input":
+    if q_type == "number-input" or q_type == 'integer-input':
         answer_section = "Please enter a numeric value in.\n"
     elif q_type == "multiple-choice" or q_type == "dropdown":
         choices = part["info"]["choices"]
@@ -106,6 +106,8 @@ def get_pl_customizations(info: dict, index: int = 0):
             customizations = {"file-names": '"file.png, file.jpg, file.pdf, filename space.png"'}
         case "matching":
             customizations = {"weight": 1, "blank": "true"}
+        case 'integer-input':
+            customizations = {"allow-blank": "false"}
         case _:
             customizations = {}
 
@@ -261,8 +263,8 @@ def write_code(exercise: dict):
                 lines.append("")
             lines.append("")
         if part["info"]["type"] == "matching":
-            for key, val in part["info"]["options"].items():
-                lines += [f'data2["params"]["part{part_num+1}"]["{key}"]["value"] = {val}']
+            for i, value in enumerate(part['info']['options']):
+                lines += [f'data2["params"]["part{part_num+1}"]["option{i}"]["value"] = {val}']
             lines.append("")
             for s_num, statement_info in enumerate(part["info"]["statements"]):
                 lines += [
@@ -272,7 +274,7 @@ def write_code(exercise: dict):
                     f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["matches"] = "{statement_info["matches"]}"'
                 ]
             lines.append("")
-        if part["info"]["type"] == "number-input":
+        if part["info"]["type"] == "number-input" or part['info']['type'] == 'integer-input':
             numeric_answer = None
             words = exercise["solutions"][part_num].strip().split(" ")
             if len(words) == 1 and string_is_numeric(
@@ -315,6 +317,13 @@ def write_code(exercise: dict):
             # data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))
             # lines.append(f'data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))')
             lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = pl.to_json(matrix_ans{part_num+1})")
+        if part['info']['type'] == 'symbolic-input':
+            if "custom_functions" in part['info']:
+                for func in part['info']["custom_functions"]:
+                    lines.append(f'{func} = sp.Function("{func}")')
+                    lines.append(f'with sp.evaluate(False):')
+                    lines.append(TAB + f'part{part_num+1}_ans = {func}(...)')
+                lines.append(f'data2["correct_answers"]["part{part_num+1}_ans"] = pl.to_json(part{part_num+1}_ans)')
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
     return apply_indent(lines, indent), used_by
@@ -369,9 +378,9 @@ def write_graph(exercise: dict):
             lines.append(f"{ax}.hist(data{suffix}, bins=num_bins{suffix}, edgecolor='black')")
             lines.append(f"{ax}.grid(True)")
         elif graph_type == "bar":
-            raise Exception("Bar plots not supported yet")
+            print("Bar plots not supported yet")
         elif graph_type == "line":
-            raise Exception("Line plots not supported yet")
+            print("Line plots not supported yet")
         elif graph_type == "box plot":
             data = graph["data"]
             if not isinstance(data[0], list):
@@ -425,7 +434,7 @@ def write_graph(exercise: dict):
             # lines.append('for i, mean in enumerate(new_means):')
             # lines.append(f"{TAB}{ax}.text(i + 1, mean, f'{{mean:.2f}}', color='black', fontsize=9, ha='center', va='bottom')")
         else:
-            raise Exception(f"Graph type {graph_type} not supported")
+            print(f"Graph type {graph_type} not supported")
         if "title" in graph:
             lines.append(f"{ax}.set_title('{variables['title']}')")
         if "x_label" in variables:
@@ -537,6 +546,8 @@ def write_md(exercise: dict):
         all_imports.add("import io")
         all_imports.add("import numpy as np")
         all_imports.add("from matplotlib import cbook")
+    if "matrices" in exercise:
+        all_imports.add("import prairielearn as pl")
 
     template_items["imports"] = "\n".join(list(all_imports))
 

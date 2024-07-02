@@ -104,7 +104,7 @@ QUESTION_TYPES = {
 
 
 def split_comma(text: str) -> list[str]:
-    return [x.strip() for x in text.split(",")]
+    return [x.strip() for x in text.split(",") if x.strip()]
 
 
 def other_asks(part: dict, solution: str, use_gpt: bool, exercise: dict = None):
