@@ -25,7 +25,7 @@ TOPICS = {
     "5": "Foundations for inference",
     "6": "Inference for categorical data",
     "7": "Inference for numerical data",
-    "8": "Foundations for inference", # for openstax
+    "8": "Foundations for inference",  # for openstax
     "9": "Multiple and logistic regression",
 }
 
@@ -33,7 +33,7 @@ TOPICS = {
 def md_part_lines(part, i, params=None, solution: str | None = None):
     q_type = part["info"]["type"]
     answer_section = ""
-    if q_type == "number-input" or q_type == 'integer-input':
+    if q_type == "number-input" or q_type == "integer-input":
         answer_section = "Please enter a numeric value in.\n"
     elif q_type == "multiple-choice" or q_type == "dropdown":
         choices = part["info"]["choices"]
@@ -77,8 +77,8 @@ def get_pl_customizations(info: dict, index: int = 0):
             #     customizations["allow-blank"] = "true"
             # else:
             customizations = decdig_defaults
-        case 'matrix-component-input':
-            customizations = { "allow-fractions": "true", **decdig_defaults}
+        case "matrix-component-input":
+            customizations = {"allow-fractions": "true", **decdig_defaults}
         case "dropdown":
             customizations = {"weight": 1, "blank": "true"}
         case "checkbox":
@@ -106,7 +106,7 @@ def get_pl_customizations(info: dict, index: int = 0):
             customizations = {"file-names": '"file.png, file.jpg, file.pdf, filename space.png"'}
         case "matching":
             customizations = {"weight": 1, "blank": "true"}
-        case 'integer-input':
+        case "integer-input":
             customizations = {"allow-blank": "false"}
         case _:
             customizations = {}
@@ -229,7 +229,7 @@ def write_code(exercise: dict):
             )
 
     if "matrices" in exercise:
-        for (i, matrix) in enumerate(exercise["matrices"]):
+        for i, matrix in enumerate(exercise["matrices"]):
             lines.append(f"matrix_ans{i+1} = {matrix['matrix']}")
             lines.append(f"data2['params']['matrix{i+1}'] = pl.to_json(np.array([matrix_ans{i+1}]))")
 
@@ -252,9 +252,9 @@ def write_code(exercise: dict):
 
     for part_num, part in enumerate(exercise["parts"]):
         lines.append(f"# Part {part_num+1} is a {part['info']['type']} question.")
-        if "code" in part['info']:
+        if "code" in part["info"]:
             lines.append("# GPT generated solution")
-            lines.extend(part['info']['code'].splitlines())
+            lines.extend(part["info"]["code"].splitlines())
 
         if part["info"]["type"] == "multiple-choice" or part["info"]["type"] == "dropdown":
             for choice_num, choice in enumerate(part["info"]["choices"]):
@@ -263,7 +263,7 @@ def write_code(exercise: dict):
                 lines.append("")
             lines.append("")
         if part["info"]["type"] == "matching":
-            for i, value in enumerate(part['info']['options']):
+            for i, value in enumerate(part["info"]["options"]):
                 lines += [f'data2["params"]["part{part_num+1}"]["option{i}"]["value"] = {val}']
             lines.append("")
             for s_num, statement_info in enumerate(part["info"]["statements"]):
@@ -274,7 +274,7 @@ def write_code(exercise: dict):
                     f'data2["params"]["part{part_num+1}"]["statement{s_num+1}"]["matches"] = "{statement_info["matches"]}"'
                 ]
             lines.append("")
-        if part["info"]["type"] == "number-input" or part['info']['type'] == 'integer-input':
+        if part["info"]["type"] == "number-input" or part["info"]["type"] == "integer-input":
             numeric_answer = None
             words = exercise["solutions"][part_num].strip().split(" ")
             if len(words) == 1 and string_is_numeric(
@@ -312,17 +312,17 @@ def write_code(exercise: dict):
                 f"data2['correct_answers']['part{part_num+1}_ans'] = pbh.roundp(correct_part{part_num+1}_ans, decimals={decimals})"
             )
             lines.append("")
-        if part['info']['type'] == 'matrix-component-input':
+        if part["info"]["type"] == "matrix-component-input":
             lines.append(f"data2['params']['part{part_num+1}']['ans1']['value'] = correct_part{part_num+1}_ans")
             # data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))
             # lines.append(f'data2["params"]["matrixA"] = pl.to_json(np.array([answers_array]))')
             lines.append(f"data2['correct_answers']['part{part_num+1}_ans'] = pl.to_json(matrix_ans{part_num+1})")
-        if part['info']['type'] == 'symbolic-input':
-            if "custom_functions" in part['info']:
-                for func in part['info']["custom_functions"]:
+        if part["info"]["type"] == "symbolic-input":
+            if "custom_functions" in part["info"]:
+                for func in part["info"]["custom_functions"]:
                     lines.append(f'{func} = sp.Function("{func}")')
-                    lines.append(f'with sp.evaluate(False):')
-                    lines.append(TAB + f'part{part_num+1}_ans = {func}(...)')
+                    lines.append("with sp.evaluate(False):")
+                    lines.append(TAB + f"part{part_num+1}_ans = {func}(...)")
                 lines.append(f'data2["correct_answers"]["part{part_num+1}_ans"] = pl.to_json(part{part_num+1}_ans)')
 
     lines += ["# Update the data object with a new dict", "data.update(data2)"]
@@ -500,8 +500,8 @@ def display_extras(exercise):
             pass  # handled in assets
         elif extra == "graph":
             lines_to_write.append('<pl-figure file-name="figure 1.png" type="dynamic" width="500px"></pl-figure>')
-        elif extra == 'matrix':
-            matrices = exercise['matrices']
+        elif extra == "matrix":
+            matrices = exercise["matrices"]
             for t, matrix in enumerate(matrices):
                 lines_to_write.append(f'<pl-matrix-latex params-name="matrix{t+1}"></pl-matrix-latex>')
     if len(lines_to_write) > 0:

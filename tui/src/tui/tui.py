@@ -93,7 +93,7 @@ QUESTION_TYPES = {
     "longtext": {},
     "dropdown": {},
     "checkbox": {},
-    "matrix": { "type": "matrix-component-input" },
+    "matrix": {"type": "matrix-component-input"},
     "matching": {},
     "true-false": {"type": "multiple-choice"},
     "yes-no": {"type": "multiple-choice", "choices": generate_yes_no_choices()},
@@ -107,7 +107,7 @@ def split_comma(text: str) -> list[str]:
     return [x.strip() for x in text.split(",") if x.strip()]
 
 
-def other_asks(part: dict, solution: str, use_gpt: bool, exercise: dict = None):
+def other_asks(part: dict, solution: str, use_gpt: bool, exercise: dict | None = None):
     key = part["type"]
     question = part["question"]
     info = deepcopy(QUESTION_TYPES[key])
@@ -147,31 +147,34 @@ def other_asks(part: dict, solution: str, use_gpt: bool, exercise: dict = None):
                     exercise["imports"] = []
                 exercise["imports"].append("import prairielearn as pl")
         case "matching":
-            statements_str = questionary.text(f"List the statements, comma separated").ask()
+            statements_str = questionary.text("List the statements, comma separated").ask()
             statements = split_comma(statements_str)
             info["statements"] = []
             for statement in statements:
                 if statement:
-                    info["statements"].append({"value": statement, 'matches': questionary.text(f"{statement} matches").ask()})
-            extra_options_str = questionary.text(f"List the extra (unused) options, comma separated").ask()
+                    info["statements"].append(
+                        {"value": statement, "matches": questionary.text(f"{statement} matches").ask()}
+                    )
+            extra_options_str = questionary.text("List the extra (unused) options, comma separated").ask()
             info["options"] = split_comma(extra_options_str)
         case "integer-input":
-            prefix = questionary.text(f"Prefix", default="$p=$").ask()
+            prefix = questionary.text("Prefix", default="$p=$").ask()
             if prefix:
                 info["label"] = prefix
         case "symbolic-input":
-            prefix = questionary.text(f"Prefix", default="$p=$").ask()
+            prefix = questionary.text("Prefix", default="$p=$").ask()
             if prefix:
                 info["label"] = prefix
-            custom_functions = questionary.text(f'custom_functions (ex. "N") (optional)').ask()
+            custom_functions = questionary.text('custom_functions (ex. "N") (optional)').ask()
             if custom_functions:
                 info["custom_functions"] = custom_functions
-            variables_str = questionary.text(f'variables (ex. "mu, sigma")').ask()
+            variables_str = questionary.text('variables (ex. "mu, sigma")').ask()
             info["variables"] = variables_str
-            if "imports" not in exercise:
-                exercise["imports"] = []
-            exercise["imports"].append("import prairielearn as pl")
-            exercise["imports"].append("from sympy import sp")
+            if exercise is not None:
+                if "imports" not in exercise:
+                    exercise["imports"] = []
+                exercise["imports"].append("import prairielearn as pl")
+                exercise["imports"].append("from sympy import sp")
         case _:
             print("No other asks for", key)
     part["info"] = info
@@ -266,7 +269,8 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
                     "image",
                     "graph",
                     "matrix",
-                ]).ask()
+                ],
+            ).ask()
 
         if "image" in exercise["extras"]:
             exercise["assets"] += split_comma(questionary.text("Image paths (comma separated)").ask())
@@ -368,11 +372,8 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
 
         for i, variant in enumerate(range(num_variants)):
             print(f"{title} v{i+1}")
-            variant = {
-                "desc": desc,
-                "parts": set_default(exercise, "parts", [])
-            }
-            solutions = exercise["solutions"] if "solutions" in exercise else [part["solution"] for part in variant["parts"]]
+            variant = {"desc": desc, "parts": set_default(exercise, "parts", [])}
+            solutions = exercise.get("solutions", None) or [part["solution"] for part in variant["parts"]]
             # solutions = [] if "solutions" not in exercise else exercise["solutions"]
             print("solutions", solutions)
             # parts_start_at = 0 if "parts" not in exercise else len(exercise["parts"])

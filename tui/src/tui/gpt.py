@@ -6,7 +6,7 @@ from openai import OpenAI
 client = OpenAI()
 
 
-def ask_number_code(question: str, answer: str | float | int, additional_info = "") -> str:
+def ask_number_code(question: str, answer: str | float | int, additional_info="") -> str:
     extra_info = f"Additional context: {additional_info}" if additional_info else ""
     chat_completion = client.chat.completions.create(
         messages=[
