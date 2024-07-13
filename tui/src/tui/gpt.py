@@ -5,6 +5,7 @@ from utils import write_json, write_file
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
 client = OpenAI(
     # This is the default and can be omitted
     api_key=os.environ.get("OPENAI_API_KEY"),

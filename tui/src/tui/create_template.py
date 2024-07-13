@@ -1,6 +1,8 @@
 from gpt import create_template_json
 from utils import write_json, read_json, split_comma, write_file
 import questionary
+from dotenv import load_dotenv
+load_dotenv()
 
 def create_chapter_template():
     """
@@ -44,6 +46,7 @@ def create_chapter_template():
     exercise["path"] = f"{branch_name}.md"
     exercise["solutions"] = [part["solution"] for part in exercise["parts"]]
     exercise["issues"] = split_comma(questionary.text("What issues does this resolve (comma separated, numbers only)").ask())
+    exercise["tables"] = question["tables"]
     write_json(exercise, 'saved.json')
     print(f"Index {index} of CH {chapter} done!")
 
