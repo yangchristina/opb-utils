@@ -99,7 +99,7 @@ interface LargeQuestion {
             digits: number; // for number-input
             label?: string; // for number-input | integer-input | symbolic-input (ex. "$p=$")
             suffix?: string; // for number-input
-            code?: string; // python code to solve question as a string
+            code?: string; // python code to solve question as a string (ex. for use with number-input questions)
             statements?: { value: string; matches: string }[]; // for matching
             options?: string[] // for matching: generate around 2 extra statements with no matches. These should not overlap with those in "statements"
         };
