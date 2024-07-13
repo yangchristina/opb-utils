@@ -16,7 +16,10 @@ def create_chapter_template(chapter: int, index: int):
     is_good = questionary.confirm("are these the right question numbers? No if this is too much", default=len(question_numbers) < 10).ask()
     if not is_good:
         question_numbers_str = split_comma(questionary.text("paste in the list you want then (comma separated, numbers only) ex. 1, 2, 3").ask())
-        question_numbers = [int(s) for s in question_numbers_str]
+        new_question_numbers = [int(s) for s in question_numbers_str]
+        if not (question_numbers[0] in new_question_numbers):
+            question["description"] = ""
+        question_numbers = new_question_numbers
     question["parts"] = [x for x in question["parts"] if x["questionNumber"] in question_numbers]
 
     solutions = {str(key): all_solutions[str(key)] for key in question_numbers if str(key) in all_solutions}
