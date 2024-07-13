@@ -4,6 +4,7 @@ import pathlib
 import shutil
 import string
 import tempfile
+import textwrap
 
 import pandas as pd
 from pdf2image import convert_from_path
@@ -12,9 +13,9 @@ from .similarity import text_similarity
 from .utils import apply_indent, apply_params_to_str, count_decimal_places, string_is_numeric
 
 
-WRITE_PATH = os.environ.get("WRITE_PATH") or "./questions"
-MY_NAME = os.environ.get("MY_NAME")
-MY_INITIALS = os.environ.get("MY_INITIALS")
+WRITE_PATH = "./questions"
+MY_NAME = None
+MY_INITIALS = None
 CUSTOM_KEYS = ["type", "choices", "code", "options", "statements"]
 TAB = " " * 2
 TOPICS = {
@@ -28,6 +29,18 @@ TOPICS = {
     "8": "Foundations for inference",  # for openstax
     "9": "Multiple and logistic regression",
 }
+
+
+def _update_globals():
+    global WRITE_PATH, MY_NAME, MY_INITIALS
+    if WRITE_PATH == "./questions":
+        WRITE_PATH = os.environ.get("WRITE_PATH") or "./questions"
+    
+    if MY_NAME is None:
+        MY_NAME = os.environ.get("MY_NAME")
+    
+    if MY_INITIALS is None:
+        MY_INITIALS = os.environ.get("MY_INITIALS")
 
 
 def md_part_lines(part, i, params=None, solution: str | None = None):
@@ -135,6 +148,8 @@ def format_type_info(info: dict):
 
 
 def move_figure(asset: str, exercise_path: str):
+    _update_globals()
+    
     dir_path = pathlib.Path(WRITE_PATH) / pathlib.Path(exercise_path).stem.lower()
     figure_no_extension_name, ext = asset.rsplit(".", maxsplit=1)
     if ext == "pdf":
@@ -264,7 +279,7 @@ def write_code(exercise: dict):
             lines.append("")
         if part["info"]["type"] == "matching":
             for i, value in enumerate(part["info"]["options"]):
-                lines += [f'data2["params"]["part{part_num+1}"]["option{i}"]["value"] = {val}']
+                lines += [f'data2["params"]["part{part_num+1}"]["option{i}"]["value"] = {value}']
             lines.append("")
             for s_num, statement_info in enumerate(part["info"]["statements"]):
                 lines += [
@@ -510,6 +525,8 @@ def display_extras(exercise):
 
 
 def write_md(exercise: dict):
+    _update_globals()
+
     solutions = exercise["solutions"]
     chapter = exercise["chapter"]
 
@@ -533,7 +550,7 @@ def write_md(exercise: dict):
     }
 
     asset_lines1, asset_lines2 = display_assets(exercise)
-    template_items["assets"] = "\n".join(asset_lines1)
+    template_items["assets"] = "\n" + "\n".join(asset_lines1)
 
     all_imports = {
         "import random",
@@ -549,7 +566,7 @@ def write_md(exercise: dict):
     if "matrices" in exercise:
         all_imports.add("import prairielearn as pl")
 
-    template_items["imports"] = "\n".join(list(all_imports))
+    template_items["imports"] = textwrap.indent("\n".join(list(all_imports)), " " * 8)
 
     code_lines, params_dict = write_code(exercise)
     template_items["generate"] = "\n".join(code_lines)
@@ -561,7 +578,7 @@ def write_md(exercise: dict):
     for i, part in enumerate(exercise["parts"]):
         question_lines = [f"part{i + 1}:", *format_type_info(part["info"]), *get_pl_customizations(part["info"], i)]
         question_part_lines += question_lines
-    template_items["file"] = "\n".join(question_part_lines)
+    template_items["parts_yaml"] = "\n".join(question_part_lines)
 
     question_body = [exercise["description"], ""]
 
@@ -596,16 +613,18 @@ def write_md(exercise: dict):
         question_body += md_part_lines(part, i=i, params=params_dict, solution=solutions[i])
         if part["info"]["type"] == "longtext":
             has_long_text = True
+            if "sample.html" not in template_items["assets"]:
+                template_items["assets"] = template_items["assets"].rstrip() + "\n- sample.html"
 
     template_items["question"] = "\n".join(question_body)
 
     template = string.Template(pathlib.Path(__file__).parent.joinpath("question.md.template").read_text())
-    filled = template.safe_substitute(template_items)
+    filled = template.safe_substitute({k: v.rstrip() for k, v in template_items.items()})
 
     print("WRITING TO", path)
 
     path.write_text(filled)
 
     if has_long_text:
-        dir_path.joinpath("sample.html").write_text("")
+        dir_path.joinpath("sample.html").touch()
     return path

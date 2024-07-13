@@ -9,7 +9,8 @@ import traceback
 from copy import deepcopy
 import questionary
 from problem_bank_scripts import process_question_pl
-from utils import write_json, read_json, split_comma
+from problem_bank_scripts.scripts.lint_server import main as lint_server
+from .utils import write_json, read_json, split_comma
 from .generate_questions import generate_true_false_choices, generate_yes_no_choices
 from .write_md import write_md
 
@@ -420,6 +421,7 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
         write_json(exercise)
         print("Wrote to saved.json")
         full_path = pathlib.Path(write_md(exercise))
+        lint_server([str(full_path)])
         if create_pr:
             GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME")
             WRITE_PATH = pathlib.Path(os.environ["WRITE_PATH"])
