@@ -9,7 +9,7 @@ import traceback
 from copy import deepcopy
 import questionary
 from problem_bank_scripts import process_question_pl
-
+from problem_bank_scripts.scripts.lint_server import main as lint_server
 from .generate_questions import generate_true_false_choices, generate_yes_no_choices
 from .write_md import write_md
 
@@ -377,11 +377,11 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
             # solutions = [] if "solutions" not in exercise else exercise["solutions"]
             print("solutions", solutions)
             # parts_start_at = 0 if "parts" not in exercise else len(exercise["parts"])
-            for p in range(0, num_parts):
+            for p in range(num_parts):
                 if p >= len(solutions):
                     solutions.append(questionary.text(f"pt.{p+1} solution?").ask())
             # create_part
-            for p in range(0, num_parts):
+            for p in range(num_parts):
                 part = variant["parts"][p] if p < len(variant["parts"]) else {}
                 part["solution"] = extract_variables(solutions[p], variables=variables)
 
@@ -423,6 +423,7 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
         write_json(exercise)
         print("Wrote to saved.json")
         full_path = pathlib.Path(write_md(exercise))
+        lint_server([str(full_path)])
         if create_pr:
             GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME")
             WRITE_PATH = pathlib.Path(os.environ["WRITE_PATH"])

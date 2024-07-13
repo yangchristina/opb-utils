@@ -22,8 +22,7 @@ length:
 - undefined
 tags:
 ${tags}
-assets:
-${assets}
+assets:${assets}
 server:
   imports: |
 ${imports}
