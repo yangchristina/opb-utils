@@ -9,7 +9,7 @@ import traceback
 from copy import deepcopy
 import questionary
 from problem_bank_scripts import process_question_pl
-
+from utils import write_json, read_json, split_comma
 from .generate_questions import generate_true_false_choices, generate_yes_no_choices
 from .write_md import write_md
 
@@ -32,9 +32,7 @@ ch1_matching_type = {
 }
 
 
-def write_json(data: dict, filename="saved.json"):
-    with open(filename, "w") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+
 
 
 def read_json(filename: str = "saved.json"):
@@ -103,8 +101,7 @@ QUESTION_TYPES = {
 }
 
 
-def split_comma(text: str) -> list[str]:
-    return [x.strip() for x in text.split(",") if x.strip()]
+
 
 
 def other_asks(part: dict, solution: str, use_gpt: bool, exercise: dict | None = None):

@@ -1,3 +1,5 @@
+import json
+
 def apply_indent(lines: list[str], indent: str = " " * 8):
     return [indent + x for x in lines]
 
@@ -51,3 +53,14 @@ def apply_params_to_str(paragraph: str, params_dict: dict):
 def count_decimal_places(num: float):
     """number of digits after decimal point"""
     return str(num)[::-1].find(".")
+
+def write_json(data: dict, filename="saved.json"):
+    with open(filename, "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+def read_json(filename: str = "saved.json"):
+    with open(filename) as f:
+        return json.load(f)
+
+def split_comma(text: str) -> list[str]:
+    return [x.strip() for x in text.split(",") if x.strip()]

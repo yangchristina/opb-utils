@@ -11,3 +11,4 @@ w-pending/
 w-*/
 .venv/
 saved.json
+tui/src/tui/questions.json
