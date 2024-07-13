@@ -1,10 +1,14 @@
 import ast
 import json
 from openai import OpenAI
-from utils import write_json
-
-client = OpenAI()
-
+from utils import write_json, write_file
+import os
+from dotenv import load_dotenv
+load_dotenv()
+client = OpenAI(
+    # This is the default and can be omitted
+    api_key=os.environ.get("OPENAI_API_KEY"),
+)
 
 def ask_number_code(question: str, answer: str | float | int, additional_info="") -> str:
     extra_info = f"Additional context: {additional_info}" if additional_info else ""
@@ -69,8 +73,7 @@ Instructions:
 Try to avoid long-text questions, can convert most long-text to multiple-choice, by generating possible wrong answers. It is possible for multiple questions to go into a single part (ie. for matching) and possible to split one question in to multiple parts.
 Turn numbers in the question text into variables. Replace variables in the question with {{{{ params.VARIABLE_NAME }}}}
 {instructions}
-Create the question in the following format (not all parts have solutions):\n"""
-    + """
+Create the question in the following format (not all parts have solutions):\n""" + """
 interface LargeQuestion {
     variables: Record<string, string>;
     question_numbers: number[];
@@ -101,7 +104,10 @@ interface LargeQuestion {
             options?: string[] // for matching: generate around 2 extra statements with no matches. These should not overlap with those in "statements"
         };
     }[];
-}"""
+}
+
+Return only a JSON string
+"""
     chat_completion = client.chat.completions.create(
         messages=[
             {
@@ -111,5 +117,5 @@ interface LargeQuestion {
         ],
         model="gpt-3.5-turbo",
     )
-    write_json(chat_completion.choices[0], 'gpt-template.json')
-    return chat_completion.choices[0]
+    write_json(chat_completion.choices[0].to_dict()["message"]["content"], 'gpt-template.json')
+    return json.loads(chat_completion.choices[0].to_dict()["message"]["content"])

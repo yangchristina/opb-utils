@@ -58,6 +58,10 @@ def write_json(data: dict, filename="saved.json"):
     with open(filename, "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
+def write_file(data: str, filename="saved.json"):
+    with open(filename, "w") as f:
+        f.write(data)
+
 def read_json(filename: str = "saved.json"):
     with open(filename) as f:
         return json.load(f)
