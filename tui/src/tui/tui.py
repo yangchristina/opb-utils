@@ -361,6 +361,7 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
         #     }
 
         use_questions_as_parts = num_parts == len(question_numbers)
+        solution_choices = [sol["questionText"] for sol in file_solutions.values()]
 
         for i, variant in enumerate(range(num_variants)):
             print(f"{title} v{i+1}")
@@ -371,7 +372,8 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
             for p in range(num_parts):
                 if p >= len(solutions):
                     default_solution = file_solutions[str(file_parts[p]["questionNumber"])]["questionText"] if use_questions_as_parts else ''
-                    solutions.append(questionary.text(f"pt.{p+1} solution?", default=default_solution).ask())
+                    cur_solution = questionary.autocomplete(f"pt.{p+1} solution? (press tab to see helpers)", default=default_solution, choices=solution_choices).ask()
+                    solutions.append(cur_solution)
             print("solutions", solutions)
             # create_part
             for p in range(num_parts):
