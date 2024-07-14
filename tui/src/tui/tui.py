@@ -10,8 +10,10 @@ from copy import deepcopy
 import questionary
 from problem_bank_scripts import process_question_pl
 from problem_bank_scripts.scripts.lint_server import main as lint_server
+from .utils import write_json, read_json, split_comma
 from .generate_questions import generate_true_false_choices, generate_yes_no_choices
 from .write_md import write_md
+from .inputs import ask_int
 
 
 ch1_matching_type = {
@@ -30,16 +32,6 @@ ch1_matching_type = {
         {"value": '"Statement 4"', "matches": "Categorical"},
     ],
 }
-
-
-def write_json(data: dict, filename="saved.json"):
-    with open(filename, "w") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
-
-def read_json(filename: str = "saved.json"):
-    with open(filename) as f:
-        return json.load(f)
 
 
 def generate_given_choices(options: list[str], answer: str, question: str, use_gpt: bool):
@@ -70,23 +62,6 @@ def generate_given_choices(options: list[str], answer: str, question: str, use_g
     return choices
 
 
-def is_int(s: str) -> bool:
-    try:
-        int(s)
-    except ValueError:
-        return False
-    else:
-        return True
-
-
-def validate_int(text: str):
-    return True if is_int(text) else "Please enter an integer."
-
-
-def ask_int(question: str, default: int | str = "") -> int:
-    return int(questionary.text(question, validate=validate_int, default=str(default)).ask())
-
-
 QUESTION_TYPES = {
     "multiple-choice": {},
     "number-input": {},
@@ -101,11 +76,6 @@ QUESTION_TYPES = {
     "integer-input": {},
     "symbolic-input": {},
 }
-
-
-def split_comma(text: str) -> list[str]:
-    return [x.strip() for x in text.split(",") if x.strip()]
-
 
 def other_asks(part: dict, solution: str, use_gpt: bool, exercise: dict | None = None):
     key = part["type"]
@@ -231,6 +201,8 @@ def set_default(exercise: dict, key: str, value: str | list):
 
 
 def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
+    textbook_file = read_json(pathlib.Path(__file__).parent / './questions.json')
+
     exercise = {}
     variables = {}
     if os.path.isfile("saved.json") and questionary.confirm("Would you like to use saved data?").ask():
@@ -248,6 +220,13 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
             variables=variables,
             parser=lambda x: [int(s) for s in split_comma(x)],
         )
+        file_question_index = next(i for i,v in enumerate(textbook_file["questions"][str(chapter)]) if next((True for x in v["parts"] if x["questionNumber"]==question_numbers[0]), False))
+        file_question = textbook_file["questions"][str(chapter)][file_question_index]
+        file_question["parts"] = [x for x in file_question["parts"] if x["questionNumber"] in question_numbers]
+        file_parts = file_question["parts"]
+        file_solutions = {str(key): textbook_file["solutions"][str(chapter)][str(key)] for key in question_numbers if str(key) in textbook_file["solutions"][str(chapter)]}
+        print("here is a link to the question section (or nearby)\n", file_question["sectionHref"])
+
         branch_name = f"openstax_C{chapter}_Q{'_Q'.join([str(x) for x in question_numbers])}"
         exercise["branch_name"] = branch_name
         exercise["path"] = f"{branch_name}.md"
@@ -259,7 +238,18 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
             parser=split_comma,
         )
         title = ask_if_not_exists(exercise, key="title", question="Title", variables=variables)
-        desc = ask_if_not_exists(exercise, key="description", question="Description", variables=variables)
+        desc = ask_if_not_exists(exercise, key="description", question="Description", variables=variables, default=file_question["description"])
+
+        part_tables = [{"matrix": table} for p in file_parts if "tables" in p for table in p["tables"]]
+        solution_tables = [{"matrix": table} for p in file_solutions.values() if "tables" in p for table in p["tables"]]
+        exercise['tables'] = part_tables + solution_tables
+        if ("tables" in file_question):
+            # next((True for x in v["parts"] if x["questionNumber"]==question_numbers[0]), False)
+            exercise['tables'] += file_question["tables"]
+        if len(exercise['tables']) > 0:
+            print(f"this question has {len(exercise['tables'])} table(s), we've included it already. Only select it below (in 'Select extra') if you have additional tables.")
+        else:
+            del exercise['tables']
 
         if "extras" not in exercise:
             exercise["extras"] = questionary.checkbox(
@@ -370,16 +360,19 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
         #         "options": options_sampling_2
         #     }
 
+        use_questions_as_parts = num_parts == len(question_numbers)
+
         for i, variant in enumerate(range(num_variants)):
             print(f"{title} v{i+1}")
             variant = {"desc": desc, "parts": set_default(exercise, "parts", [])}
             solutions = exercise.get("solutions", None) or [part["solution"] for part in variant["parts"]]
             # solutions = [] if "solutions" not in exercise else exercise["solutions"]
-            print("solutions", solutions)
             # parts_start_at = 0 if "parts" not in exercise else len(exercise["parts"])
             for p in range(num_parts):
                 if p >= len(solutions):
-                    solutions.append(questionary.text(f"pt.{p+1} solution?").ask())
+                    default_solution = file_solutions[str(file_parts[p]["questionNumber"])]["questionText"] if use_questions_as_parts else ''
+                    solutions.append(questionary.text(f"pt.{p+1} solution?", default=default_solution).ask())
+            print("solutions", solutions)
             # create_part
             for p in range(num_parts):
                 part = variant["parts"][p] if p < len(variant["parts"]) else {}
@@ -387,7 +380,7 @@ def run_tui(*, create_pr: bool = False, use_gpt: bool = False):
 
                 if "question" not in part:
                     part["question"] = extract_variables(
-                        questionary.text(f"Question text for v{i+1} - pt.{p+1}").ask(), variables=variables
+                        questionary.text(f"Question text for v{i+1} - pt.{p+1}", default=file_parts[p]["questionText"] if use_questions_as_parts else '').ask(), variables=variables
                     )
 
                 if "type" not in part:

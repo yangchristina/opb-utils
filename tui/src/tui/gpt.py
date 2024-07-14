@@ -1,10 +1,15 @@
 import ast
-
+import json
 from openai import OpenAI
+from utils import write_json, write_file
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-
-client = OpenAI()
-
+client = OpenAI(
+    # This is the default and can be omitted
+    api_key=os.environ.get("OPENAI_API_KEY"),
+)
 
 def ask_number_code(question: str, answer: str | float | int, additional_info="") -> str:
     extra_info = f"Additional context: {additional_info}" if additional_info else ""
@@ -54,3 +59,65 @@ def ask_mc_options(options: list[str], answer: str, question: str, num_to_genera
     assert isinstance(res, list)
     assert all(isinstance(x, str) for x in res)
     return res
+
+
+def dict_to_string(dict: dict):
+    return json.dumps(dict, indent=2)
+
+def create_template_json(question: dict, solutions: dict, instructions: str):
+    """
+    NOT IN USE
+    example instructions: This question has 1 part, which is "matching".
+    """
+
+    prompt = f"{dict_to_string(question)}\n${dict_to_string(solutions)}" + f"""
+Instructions:
+Try to avoid long-text questions, can convert most long-text to multiple-choice, by generating possible wrong answers. It is possible for multiple questions to go into a single part (ie. for matching) and possible to split one question in to multiple parts.
+Turn numbers in the question text into variables. Replace variables in the question with {{{{ params.VARIABLE_NAME }}}}
+{instructions}
+Create the question in the following format (not all parts have solutions):\n""" + """
+interface LargeQuestion {
+    variables: Record<string, string>;
+    question_numbers: number[];
+    title: string; // generate a title for the entire question
+    parts: {
+        solution: string;
+        question: string;
+        info: {
+            type:
+                | "multiple-choice"
+                | "checkbox"
+                | "number-input"
+                | "longtext"
+                | "dropdown"
+                | "matrix"
+                | "matching"
+                | "true-false"
+                | "yes-no"
+                | "file-upload"
+                | "integer-input"
+                | "symbolic-input";
+            choices?: { value: string; correct: boolean; feedback: string }[]; // for multiple-choice | checkbox | dropdown | yes-no | true-false
+            digits: number; // for number-input
+            label?: string; // for number-input | integer-input | symbolic-input (ex. "$p=$")
+            suffix?: string; // for number-input
+            code?: string; // python code to solve question as a string (ex. for use with number-input questions)
+            statements?: { value: string; matches: string }[]; // for matching
+            options?: string[] // for matching: generate around 2 extra statements with no matches. These should not overlap with those in "statements"
+        };
+    }[];
+}
+
+Return only a JSON string
+"""
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        model="gpt-3.5-turbo",
+    )
+    write_json(chat_completion.choices[0].to_dict()["message"]["content"], 'gpt-template.json')
+    return json.loads(chat_completion.choices[0].to_dict()["message"]["content"])
