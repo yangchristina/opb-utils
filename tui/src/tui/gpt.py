@@ -66,6 +66,7 @@ def dict_to_string(dict: dict):
 
 def create_template_json(question: dict, solutions: dict, instructions: str):
     """
+    NOT IN USE
     example instructions: This question has 1 part, which is "matching".
     """
 

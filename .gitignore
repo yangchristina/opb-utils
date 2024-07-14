@@ -12,3 +12,4 @@ w-*/
 .venv/
 saved.json
 **/questions.json
+create_template.py
