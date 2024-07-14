@@ -35,10 +35,10 @@ def _update_globals():
     global WRITE_PATH, MY_NAME, MY_INITIALS
     if WRITE_PATH == "./questions":
         WRITE_PATH = os.environ.get("WRITE_PATH") or "./questions"
-    
+
     if MY_NAME is None:
         MY_NAME = os.environ.get("MY_NAME")
-    
+
     if MY_INITIALS is None:
         MY_INITIALS = os.environ.get("MY_INITIALS")
 
@@ -149,7 +149,7 @@ def format_type_info(info: dict):
 
 def move_figure(asset: str, exercise_path: str):
     _update_globals()
-    
+
     dir_path = pathlib.Path(WRITE_PATH) / pathlib.Path(exercise_path).stem.lower()
     figure_no_extension_name, ext = asset.rsplit(".", maxsplit=1)
     if ext == "pdf":
@@ -240,7 +240,7 @@ def write_code(exercise: dict):
         for i, table in enumerate(exercise["tables"]):
             lines.append(f"table{i+1} = {table['matrix']}")
             lines.append(
-                f"data2['params']['table{i+1}'] = pbh.create_html_table(table{i+1}, width='550px', first_row_is_header={table['first_row_is_header']}, first_col_is_header={table['first_col_is_header']},)"
+                f"data2['params']['table{i+1}'] = pbh.create_html_table(table{i+1}, width='550px', first_row_is_header={table['first_row_is_header'] if 'first_row_is_header' in table else True}, first_col_is_header={table['first_col_is_header'] if 'first_col_is_header' in table else False},)"
             )
 
     if "matrices" in exercise:
